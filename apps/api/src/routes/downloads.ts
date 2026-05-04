@@ -1,35 +1,48 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createReadStream, existsSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { getDb } from "../db/index.js";
-import { downloadJobs, approvals } from "../db/schema.js";
+import { downloadJobs, approvals, assetCache, people } from "../db/schema.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { sendError, sendSuccess } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
+import { enqueueDownload, serveDownload } from "../lib/download-queue.js";
+import { createSignedDownloadUrl, verifyToken } from "../lib/signing.js";
+
+const RATE_LIMIT_WINDOW = 10_000;
+const rateLimitMap = new Map<string, number>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const last = rateLimitMap.get(userId);
+  if (last && now - last < RATE_LIMIT_WINDOW) return false;
+  rateLimitMap.set(userId, now);
+  return true;
+}
 
 const downloads = new Hono();
 downloads.use("*", authMiddleware);
 
 downloads.post("/", async (c) => {
   const user = c.get("user");
+  if (!checkRateLimit(user.id)) {
+    return sendError(c, 429, "RATE_LIMITED", "Too many requests");
+  }
+
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const personId = body?.personId;
+  const assetIds = body?.assetIds as string[] | undefined;
 
   if (!personId || typeof personId !== "string") {
     return sendError(c, 400, "INVALID_REQUEST", "personId is required");
   }
 
   const db = getDb();
-
   const approval = db
     .select()
     .from(approvals)
-    .where(
-      and(
-        eq(approvals.userId, user.id),
-        eq(approvals.personId, personId),
-      ),
-    )
+    .where(and(eq(approvals.userId, user.id), eq(approvals.personId, personId)))
     .limit(1)
     .all()[0];
 
@@ -37,41 +50,22 @@ downloads.post("/", async (c) => {
     return sendError(c, 403, "FORBIDDEN", "No access to this person's assets");
   }
 
-  const existingPending = db
-    .select()
-    .from(downloadJobs)
-    .where(
-      and(
-        eq(downloadJobs.userId, user.id),
-        eq(downloadJobs.personId, personId),
-        eq(downloadJobs.status, "pending"),
-      ),
-    )
-    .all();
+  const ids =
+    Array.isArray(assetIds) && assetIds.length > 0
+      ? assetIds.slice(0, 100)
+      : db
+          .select({ id: assetCache.immichAssetId })
+          .from(assetCache)
+          .where(eq(assetCache.personId, personId))
+          .all()
+          .map((a) => a.id);
 
-  if (existingPending.length > 0) {
-    return sendSuccess(c, { data: existingPending[0] });
+  if (ids.length === 0) {
+    return sendError(c, 404, "NO_ASSETS", "No assets to download");
   }
 
-  const job = {
-    id: randomUUID(),
-    userId: user.id,
-    personId,
-    status: "pending" as const,
-    zipPath: null,
-    expiresAt: null,
-    error: null,
-    createdAt: new Date(),
-  };
-
-  db.insert(downloadJobs).values(job).run();
-
-  logger.info(
-    { jobId: job.id, userId: user.id, personId },
-    "download job created",
-  );
-
-  return sendSuccess(c, { data: job }, 201);
+  const jobId = enqueueDownload(user.id, personId, ids, user.email);
+  return sendSuccess(c, { data: { id: jobId, status: "pending" } }, 201);
 });
 
 downloads.get("/:jobId", async (c) => {
@@ -86,15 +80,58 @@ downloads.get("/:jobId", async (c) => {
     .limit(1)
     .all()[0];
 
-  if (!job) {
-    return sendError(c, 404, "NOT_FOUND", "Download job not found");
-  }
-
+  if (!job) return sendError(c, 404, "NOT_FOUND", "Download job not found");
   if (job.userId !== user.id && user.role !== "admin") {
     return sendError(c, 403, "FORBIDDEN", "Not your download job");
   }
 
-  return sendSuccess(c, { data: job });
+  const result: Record<string, unknown> = {
+    id: job.id,
+    status: job.status,
+    error: job.error,
+    createdAt: job.createdAt,
+  };
+
+  if (job.status === "completed" && job.zipPath) {
+    try {
+      const s = await stat(job.zipPath);
+      result.sizeBytes = s.size;
+      result.downloadUrl = createSignedDownloadUrl(job.id);
+      result.expiresAt = job.expiresAt;
+    } catch {
+      result.status = "failed";
+      result.error = "File not found on disk";
+    }
+  }
+
+  return sendSuccess(c, { data: result });
+});
+
+downloads.get("/serve/:jobId", async (c) => {
+  const token = c.req.query("token");
+  const jobId = c.req.param("jobId");
+
+  if (!token) {
+    return sendError(c, 401, "MISSING_TOKEN", "Signed token required");
+  }
+
+  const payload = verifyToken(token);
+  if (!payload || payload.resource !== `download:${jobId}`) {
+    return sendError(c, 403, "INVALID_TOKEN", "Invalid or expired token");
+  }
+
+  const result = serveDownload(jobId);
+  if (!result || !existsSync(result.path)) {
+    return sendError(c, 404, "NOT_FOUND", "Download expired or not found");
+  }
+
+  const stream = createReadStream(result.path);
+
+  return c.newResponse(stream as any, 200, {
+    "Content-Type": "application/zip",
+    "Content-Disposition": `attachment; filename="faceshare-${jobId.slice(0, 8)}.zip"`,
+    "Cache-Control": "private, max-age=3600",
+  });
 });
 
 export { downloads };
