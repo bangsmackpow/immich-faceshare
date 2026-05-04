@@ -9,6 +9,7 @@ import { peopleRoute } from "./routes/people.js";
 import { requests } from "./routes/requests.js";
 import { assets } from "./routes/assets.js";
 import { downloads } from "./routes/downloads.js";
+import { admin } from "./routes/admin.js";
 const app = new Hono();
 
 app.use("*", cors({ origin: "*" }));
@@ -42,6 +43,7 @@ app.route("/api/people", peopleRoute);
 app.route("/api/requests", requests);
 app.route("/api/assets", assets);
 app.route("/api/downloads", downloads);
+app.route("/api/admin", admin);
 
 app.onError((err, c) => {
   logger.error(err, "unhandled error");
