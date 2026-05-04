@@ -1,27 +1,28 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./lib/auth";
+import { ToastProvider } from "./components/shared/toast";
+import LoginPage from "./routes/login";
+import PeopleDirectory from "./routes/people/index";
+import Gallery from "./routes/gallery/index";
 import AdminDashboard from "./routes/admin/dashboard";
 import AdminPlayground from "./routes/admin/playground";
 import AdminLogs from "./routes/admin/logs";
 
-function HomePage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <p className="text-zinc-400">FaceShare — loading...</p>
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/playground" element={<AdminPlayground />} />
-        <Route path="/admin/logs" element={<AdminLogs />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ToastProvider>
+        <Routes>
+          <Route path="/" element={<Navigate to="/people" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/people" element={<PeopleDirectory />} />
+          <Route path="/gallery/:personId" element={<Gallery />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/playground" element={<AdminPlayground />} />
+          <Route path="/admin/logs" element={<AdminLogs />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </ToastProvider>
     </AuthProvider>
   );
 }
