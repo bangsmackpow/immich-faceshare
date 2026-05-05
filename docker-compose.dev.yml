@@ -1,0 +1,6 @@
+services:
+  faceshare:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/bangsmackpow/immich-faceshare:dev
