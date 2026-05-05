@@ -29,6 +29,8 @@ All configuration is via environment variables (see `.env.example`):
 | `IMMICH_URL` | Immich server URL | `http://immich:2283` |
 | `SESSION_SECRET` | Session encryption secret | `change-me-to-a-random-secret` |
 | `DATABASE_PATH` | SQLite database path | `/data/faceshare.db` |
+| `LOG_DIR` | Log output directory | `/data/logs` |
+| `DOWNLOADS_DIR` | ZIP download working directory | `/data/downloads` |
 | `PORT` | HTTP listen port | `3001` |
 | `NODE_ENV` | Environment mode | `development` |
 

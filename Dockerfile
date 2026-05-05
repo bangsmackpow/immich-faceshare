@@ -25,7 +25,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
 RUN addgroup -S faceshare && adduser -S faceshare -G faceshare && \
-    mkdir -p /data /data/logs && \
+    mkdir -p /data/logs /data/downloads && \
     chown -R faceshare:faceshare /data
 USER faceshare
 

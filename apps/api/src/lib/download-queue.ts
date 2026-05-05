@@ -18,7 +18,7 @@ interface QueueJob {
   userEmail: string;
 }
 
-const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? join(process.cwd(), "data", "downloads");
+const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR ?? "/data/downloads";
 
 if (!existsSync(DOWNLOADS_DIR)) {
   mkdirSync(DOWNLOADS_DIR, { recursive: true });
