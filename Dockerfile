@@ -17,17 +17,17 @@ RUN rm -f packages/shared/tsconfig.tsbuildinfo apps/api/tsconfig.tsbuildinfo && 
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-RUN apk add --no-cache wget dumb-init
+RUN apk add --no-cache wget dumb-init su-exec
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-RUN addgroup -S faceshare && adduser -S faceshare -G faceshare && \
-    mkdir -p /data/logs /data/downloads && \
-    chown -R faceshare:faceshare /data
-USER faceshare
+RUN addgroup -S faceshare && adduser -S faceshare -G faceshare
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 3001
 ENV NODE_ENV=production
@@ -35,5 +35,5 @@ ENV NODE_ENV=production
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-ENTRYPOINT ["dumb-init", "--"]
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "apps/api/dist/index.js"]
