@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -17,6 +17,7 @@ declare global {
             el: HTMLElement,
             options: { theme: string; size: string; text?: string },
           ) => void;
+          prompt: () => void;
         };
       };
     };
@@ -29,57 +30,59 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string | null>(null);
-  const [configLoading, setConfigLoading] = useState(true);
+  const scriptLoaded = useRef(false);
 
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json())
       .then((cfg) => setClientId(cfg.googleClientId))
-      .catch(() => setError("Failed to load configuration"))
-      .finally(() => setConfigLoading(false));
+      .catch(() => setError("Failed to load configuration"));
   }, []);
+
+  useEffect(() => {
+    if (!clientId || scriptLoaded.current) return;
+    scriptLoaded.current = true;
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => setError("Failed to load Google Sign-In");
+    document.head.appendChild(script);
+  }, [clientId]);
 
   if (user) {
     navigate("/people", { replace: true });
     return null;
   }
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = () => {
+    if (!clientId) {
+      setError("Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in your environment.");
+      return;
+    }
+    if (!window.google) {
+      setError("Google Sign-In is still loading. Try again.");
+      return;
+    }
     setLoading(true);
     setError(null);
-    try {
-      if (!clientId) {
-        throw new Error(
-          "Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in your environment.",
-        );
-      }
 
-      const token = await new Promise<string>((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://accounts.google.com/gsi/client";
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-          window.google?.accounts.id.initialize({
-            client_id: clientId,
-            callback: (res) => resolve(res.credential),
-          });
-          window.google?.accounts.id.renderButton(
-            document.getElementById("google-button")!,
-            { theme: "outline", size: "large", text: "signin_with" },
-          );
-          document.getElementById("google-button")?.click();
-        };
-        script.onerror = () => reject(new Error("Failed to load Google Sign-In"));
-        document.head.appendChild(script);
-      });
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (res) => {
+        try {
+          await login(res.credential);
+          navigate("/people", { replace: true });
+        } catch {
+          setError("Login failed");
+          setLoading(false);
+        }
+      },
+    });
 
-      await login(token);
-      navigate("/people", { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
-      setLoading(false);
-    }
+    window.google.accounts.id.prompt();
+
+    setTimeout(() => setLoading(false), 30000);
   };
 
   return (
