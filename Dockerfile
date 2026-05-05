@@ -1,7 +1,7 @@
 FROM node:20-alpine AS deps
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
-COPY package.json tsconfig.base.json ./
+COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
