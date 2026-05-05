@@ -2,11 +2,28 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { prettyJSON } from "hono/pretty-json";
 import { logger as httpLogger } from "hono/logger";
-import { serveStatic } from "@hono/node-server/serve-static";
 import { join, dirname, extname } from "node:path";
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { logger } from "./lib/logger.js";
+
+const MIME: Record<string, string> = {
+  ".html": "text/html",
+  ".js": "application/javascript",
+  ".css": "text/css",
+  ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".webmanifest": "application/manifest+json",
+};
+
+function serveFile(path: string) {
+  const ext = extname(path);
+  return new Response(readFileSync(path), {
+    headers: { "content-type": MIME[ext] ?? "application/octet-stream" },
+  });
+}
 import { getDb } from "./db/index.js";
 import { auth } from "./routes/auth.js";
 import { peopleRoute } from "./routes/people.js";
@@ -26,14 +43,19 @@ app.use(
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_DIST = join(__dirname, "../../web/dist");
 
-app.use("/assets/*", serveStatic({ root: WEB_DIST }));
+app.get("/assets/*", (c) => {
+  const filePath = join(WEB_DIST, c.req.path);
+  if (existsSync(filePath)) return serveFile(filePath);
+  return c.notFound();
+});
 
-const STATIC_FILES = ["sw.js", "manifest.webmanifest", "favicon.ico"];
+const STATIC_FILES = ["sw.js", "manifest.webmanifest", "favicon.ico", "registerSW.js"];
 for (const file of STATIC_FILES) {
-  app.get(`/${file}`, serveStatic({ path: join(WEB_DIST, file) }));
+  const filePath = join(WEB_DIST, file);
+  app.get(`/${file}`, (c) => serveFile(filePath));
 }
 
-app.get("/", serveStatic({ path: join(WEB_DIST, "index.html") }));
+app.get("/", (c) => serveFile(join(WEB_DIST, "index.html")));
 
 app.get("/health", (c) => {
   return c.json({
@@ -63,12 +85,10 @@ app.route("/api/admin", admin);
 
 app.get("/*", (c) => {
   const filePath = join(WEB_DIST, c.req.path);
-  if (existsSync(filePath)) {
-    return new Response(readFileSync(filePath), {
-      headers: { "content-type": extname(filePath) === ".js" ? "application/javascript" : "text/plain" },
-    });
+  if (existsSync(filePath) && extname(filePath)) {
+    return serveFile(filePath);
   }
-  return c.html(readFileSync(join(WEB_DIST, "index.html"), "utf-8"));
+  return serveFile(join(WEB_DIST, "index.html"));
 });
 
 app.onError((err, c) => {
