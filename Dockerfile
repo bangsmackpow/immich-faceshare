@@ -5,7 +5,7 @@ COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci --omit=dev
+RUN npm ci
 
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -19,7 +19,7 @@ RUN apk add --no-cache wget dumb-init
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
 RUN addgroup -S faceshare && adduser -S faceshare -G faceshare
