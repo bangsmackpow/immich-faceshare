@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
@@ -88,11 +88,17 @@ function PersonCard({
 }
 
 export default function PeopleDirectory() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/login", { replace: true });
+    }
+  }, [authLoading, user, navigate]);
   const [modalPerson, setModalPerson] = useState<{
     id: string;
     name: string;

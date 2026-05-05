@@ -46,9 +46,31 @@ export default function LoginPage() {
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
+    script.onload = () => {
+      window.google?.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (res) => {
+          try {
+            await login(res.credential);
+            navigate("/people", { replace: true });
+          } catch {
+            setError("Login failed");
+            setLoading(false);
+          }
+        },
+      });
+      const div = document.createElement("div");
+      div.id = "g-button";
+      div.style.display = "none";
+      document.body.appendChild(div);
+      window.google?.accounts.id.renderButton(div, {
+        theme: "outline",
+        size: "large",
+      });
+    };
     script.onerror = () => setError("Failed to load Google Sign-In");
     document.head.appendChild(script);
-  }, [clientId]);
+  }, [clientId, login, navigate]);
 
   if (user) {
     navigate("/people", { replace: true });
@@ -66,22 +88,7 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError(null);
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: async (res) => {
-        try {
-          await login(res.credential);
-          navigate("/people", { replace: true });
-        } catch {
-          setError("Login failed");
-          setLoading(false);
-        }
-      },
-    });
-
-    window.google.accounts.id.prompt();
-
+    document.getElementById("g-button")?.click();
     setTimeout(() => setLoading(false), 30000);
   };
 

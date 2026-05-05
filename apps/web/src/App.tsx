@@ -13,7 +13,7 @@ export default function App() {
     <AuthProvider>
       <ToastProvider>
         <Routes>
-          <Route path="/" element={<Navigate to="/people" replace />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/people" element={<PeopleDirectory />} />
           <Route path="/gallery/:personId" element={<Gallery />} />
