@@ -50,6 +50,9 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Trigger Portainer webhook
-        if: ${{ secrets.PORTAINER_WEBHOOK_URL != '' }}
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
         run: |
-          curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}"
+          if [ -n "$PORTAINER_WEBHOOK_URL" ]; then
+            curl -X POST "$PORTAINER_WEBHOOK_URL"
+          fi
