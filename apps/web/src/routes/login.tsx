@@ -38,6 +38,13 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        throw new Error(
+          "Google Sign-In is not configured. Set VITE_GOOGLE_CLIENT_ID in your environment.",
+        );
+      }
+
       const token = await new Promise<string>((resolve, reject) => {
         const script = document.createElement("script");
         script.src = "https://accounts.google.com/gsi/client";
@@ -45,7 +52,7 @@ export default function LoginPage() {
         script.defer = true;
         script.onload = () => {
           window.google?.accounts.id.initialize({
-            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "",
+            client_id: clientId,
             callback: (res) => resolve(res.credential),
           });
           window.google?.accounts.id.renderButton(

@@ -22,6 +22,7 @@ export async function api<T>(
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
+    "content-type": "application/json",
     ...(options.headers as Record<string, string>),
   };
   if (token) headers["authorization"] = `Bearer ${token}`;
