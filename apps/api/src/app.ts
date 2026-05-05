@@ -57,6 +57,10 @@ for (const file of STATIC_FILES) {
 
 app.get("/", (c) => serveFile(join(WEB_DIST, "index.html")));
 
+app.get("/api/config", (c) => {
+  return c.json({ googleClientId: process.env.GOOGLE_CLIENT_ID ?? "" });
+});
+
 app.get("/health", (c) => {
   return c.json({
     status: "ok",

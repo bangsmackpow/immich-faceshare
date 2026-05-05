@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -28,6 +28,16 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [clientId, setClientId] = useState<string | null>(null);
+  const [configLoading, setConfigLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((cfg) => setClientId(cfg.googleClientId))
+      .catch(() => setError("Failed to load configuration"))
+      .finally(() => setConfigLoading(false));
+  }, []);
 
   if (user) {
     navigate("/people", { replace: true });
@@ -38,10 +48,9 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
       if (!clientId) {
         throw new Error(
-          "Google Sign-In is not configured. Set VITE_GOOGLE_CLIENT_ID in your environment.",
+          "Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in your environment.",
         );
       }
 
