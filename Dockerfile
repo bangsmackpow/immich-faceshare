@@ -24,7 +24,9 @@ COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-RUN addgroup -S faceshare && adduser -S faceshare -G faceshare
+RUN addgroup -S faceshare && adduser -S faceshare -G faceshare && \
+    mkdir -p /data /data/logs && \
+    chown -R faceshare:faceshare /data
 USER faceshare
 
 EXPOSE 3001
