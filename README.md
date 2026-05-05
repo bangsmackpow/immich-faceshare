@@ -33,6 +33,8 @@ All configuration is via environment variables (see `.env.example`):
 | `DOWNLOADS_DIR` | ZIP download working directory | `/data/downloads` |
 | `PORT` | HTTP listen port | `3001` |
 | `NODE_ENV` | Environment mode | `development` |
+| `ALLOWED_EMAILS` | Comma-separated whitelist of email addresses | — |
+| `ALLOWED_DOMAINS` | Comma-separated whitelist of email domains | — |
 
 Optional features (Google OAuth, email):
 
@@ -47,6 +49,34 @@ Optional features (Google OAuth, email):
 | `SMTP_PASS` | SMTP password |
 | `SMTP_FROM` | From address for emails |
 | `ADMIN_EMAIL` | Admin email for notifications |
+
+## Access Control
+
+You have two options to limit who can sign in:
+
+### Option 1: In-app email whitelist (recommended)
+
+Set `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` in your `.env`:
+
+```bash
+# Allow specific email addresses
+ALLOWED_EMAILS=you@example.com,friend@example.com
+
+# Or allow an entire domain
+ALLOWED_DOMAINS=example.com
+```
+
+If both are blank, **any** Google account can sign in. If either is set, all other accounts are rejected with an "Access denied" message on the login page.
+
+### Option 2: Google Cloud Console (External / Testing mode)
+
+When your OAuth consent screen is in **Testing** mode, only accounts you add under **Test users** can sign in. This works well for early access but requires manual management:
+
+1. Go to **Google Cloud Console** → **APIs & Services** → **OAuth consent screen**
+2. Under **Test users**, click **Add Users** and enter each email address
+3. Once you **Publish** the app (Production mode), the test users restriction is removed
+
+Google doesn't offer domain whitelisting in Production mode — that's why the in-app approach (Option 1) is better for ongoing use.
 
 ## Google OAuth Setup
 
@@ -146,6 +176,7 @@ Start the service and open it in your browser. You should see a **Sign in with G
 | `403 access_denied` | Your account isn't in the test users list (app is in Testing mode) |
 | Login button doesn't appear | `VITE_GOOGLE_CLIENT_ID` isn't set in the frontend build environment |
 | `err_popup_closed_by_user` | User closed the popup — normal, just try again |
+| "Access denied: your email is not on the allowed list" | Email doesn't match `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` |
 
 ## Docker Images
 

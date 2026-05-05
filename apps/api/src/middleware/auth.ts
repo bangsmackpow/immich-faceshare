@@ -133,9 +133,29 @@ export async function verifyGoogleToken(
   };
 }
 
+function isEmailAllowed(email: string): boolean {
+  const allowedEmails = process.env.ALLOWED_EMAILS;
+  const allowedDomains = process.env.ALLOWED_DOMAINS;
+  if (!allowedEmails && !allowedDomains) return true;
+  if (allowedEmails) {
+    const emails = allowedEmails.split(",").map((e) => e.trim().toLowerCase());
+    if (emails.includes(email.toLowerCase())) return true;
+  }
+  if (allowedDomains) {
+    const domains = allowedDomains.split(",").map((d) => d.trim().toLowerCase());
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (domain && domains.includes(domain)) return true;
+  }
+  return false;
+}
+
 export async function findOrCreateUser(payload: GoogleTokenPayload) {
   const db = getDb();
   const adminEmail = process.env.ADMIN_EMAIL;
+
+  if (!isEmailAllowed(payload.email)) {
+    throw new Error("Access denied: your email is not on the allowed list");
+  }
 
   const existing = db
     .select()
