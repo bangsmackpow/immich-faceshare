@@ -27,22 +27,32 @@ export function migrate(sqlite: Database.Database) {
     )
     .get();
   if (!oldUsersExists) {
-    const hasGoogleId = sqlite
+    const usersTableExists = sqlite
       .prepare(
-        "SELECT COUNT(*) as cnt FROM pragma_table_info('users') WHERE name='google_id'",
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
       )
-      .get() as { cnt: number };
-    if (hasGoogleId.cnt > 0) {
-      // Old schema exists, migrate data
-      sqlite.exec(`
-        INSERT OR IGNORE INTO users_new (id, name, email, email_verified, image, role, created_at, updated_at)
-        SELECT id, name, email, 0, avatar, role, created_at, created_at FROM users;
-        DROP TABLE users;
-        ALTER TABLE users_new RENAME TO users;
-      `);
+      .get();
+    if (!usersTableExists) {
+      // Brand new database — rename users_new to users
+      sqlite.exec("ALTER TABLE users_new RENAME TO users");
     } else {
-      // No google_id column, just drop the new temp table
-      sqlite.exec("DROP TABLE users_new");
+      const hasGoogleId = sqlite
+        .prepare(
+          "SELECT COUNT(*) as cnt FROM pragma_table_info('users') WHERE name='google_id'",
+        )
+        .get() as { cnt: number };
+      if (hasGoogleId.cnt > 0) {
+        // Old schema exists, migrate data
+        sqlite.exec(`
+          INSERT OR IGNORE INTO users_new (id, name, email, email_verified, image, role, created_at, updated_at)
+          SELECT id, name, email, 0, avatar, role, created_at, created_at FROM users;
+          DROP TABLE users;
+          ALTER TABLE users_new RENAME TO users;
+        `);
+      } else {
+        // No google_id column, just drop the new temp table
+        sqlite.exec("DROP TABLE users_new");
+      }
     }
   } else {
     sqlite.exec("DROP TABLE users_new");
