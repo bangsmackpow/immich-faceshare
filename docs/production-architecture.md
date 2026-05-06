@@ -5,7 +5,7 @@
 - SQLite (better-sqlite3) for application data
 - Direct Immich API proxy for photo access
 - Hono.js API + React SPA frontend
-- JWT sessions with Google OAuth
+- better-auth sessions with email/password authentication
 - File-based logging with pino
 
 ## Scaling Recommendations
@@ -29,7 +29,7 @@
 ### 2. Caching Layer
 
 **Add Redis for:**
-- Session storage (replace in-memory JWT validation with Redis-backed sessions)
+- Session storage (Redis-backed better-auth sessions for distributed deployments)
 - Rate limiting (sliding window counters)
 - API response caching (Immich proxy responses, person lists)
 - Download job queue state (replace in-memory array)
@@ -99,6 +99,8 @@
 - API key rotation for Immich integration
 - Audit log integrity (hash chain or append-only table)
 - Backup encryption (AES-256-GCM for DB backups)
+- Account lockout after failed login attempts (brute force protection)
+- bcrypt cost factor tuning (balance security vs login latency)
 
 ### 8. Deployment Architecture
 
