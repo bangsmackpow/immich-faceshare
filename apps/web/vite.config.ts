@@ -34,6 +34,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico}"],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
           {
             urlPattern: /^https?:\/\/.*\/api\/assets\/.*/i,
@@ -48,14 +51,22 @@ export default defineConfig({
           },
           {
             urlPattern: ({ url }) =>
-              url.pathname.startsWith("/api/") &&
-              !url.pathname.startsWith("/api/auth/"),
+              url.pathname.startsWith("/api/admin/") ||
+              url.pathname.startsWith("/api/auth/"),
+            handler: "NetworkOnly",
+          },
+          {
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith("/api/"),
             handler: "NetworkFirst",
             options: {
               cacheName: "api-cache",
               expiration: {
                 maxEntries: 50,
-                maxAgeSeconds: 5 * 60,
+                maxAgeSeconds: 60,
+              },
+              cacheableResponse: {
+                statuses: [200],
               },
             },
           },
