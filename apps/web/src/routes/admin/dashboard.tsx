@@ -6,7 +6,7 @@ import { Card } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Modal } from "../../components/ui/modal";
-import { CheckCircle, XCircle, Database, HardDrive, Users, Clock, Download, RefreshCw, Server, ArrowDownUp } from "lucide-react";
+import { CheckCircle, XCircle, Database, HardDrive, Users, Clock, Download, RefreshCw, Server, ArrowDownUp, UserPlus, KeyRound, Trash2, Edit } from "lucide-react";
 
 interface RequestRow {
   id: string;
@@ -479,11 +479,166 @@ function BackupPanel() {
   );
 }
 
+interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "user";
+  createdAt: string;
+  updatedAt: string;
+}
+
+function UserManagementPanel() {
+  const qc = useQueryClient();
+  const [showCreate, setShowCreate] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [resetUser, setResetUser] = useState<UserRow | null>(null);
+  const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
+  const [newPassword, setNewPassword] = useState<string | null>(null);
+
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" as "admin" | "user" });
+  const [editForm, setEditForm] = useState({ name: "", role: "admin" as "admin" | "user" });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "users"],
+    queryFn: () => api<{ data: UserRow[]; total: number }>("/api/admin/users"),
+    refetchInterval: 30_000,
+  });
+
+  const createUser = useMutation({
+    mutationFn: () =>
+      api("/api/admin/users", {
+        method: "POST",
+        body: JSON.stringify(form),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      setShowCreate(false);
+      setForm({ name: "", email: "", password: "", role: "user" });
+    },
+  });
+
+  const updateUser = useMutation({
+    mutationFn: () =>
+      api(`/api/admin/users/${editUser!.id}`, {
+        method: "PUT",
+        body: JSON.stringify(editForm),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      setEditUser(null);
+    },
+  });
+
+  const resetPassword = useMutation({
+    mutationFn: () =>
+      api<{ data: { password: string } }>(`/api/admin/users/${resetUser!.id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    onSuccess: (res) => {
+      setNewPassword(res.data.password);
+    },
+  });
+
+  const deleteUserMut = useMutation({
+    mutationFn: () =>
+      api(`/api/admin/users/${deleteUser!.id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      setDeleteUser(null);
+    },
+  });
+
+  return (
+    <Card title={`User Management (${data?.total ?? 0})`}>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-zinc-500">Manage user accounts and permissions</p>
+        <Button variant="primary" onClick={() => setShowCreate(true)}>
+          <UserPlus className="h-3 w-3 mr-1" /> Add User
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="py-8 text-center text-sm text-zinc-500">Loading...</div>
+      ) : !data?.data?.length ? (
+        <div className="py-8 text-center text-sm text-zinc-500">No users yet</div>
+      ) : (
+        <div className="divide-y divide-zinc-800">
+          {data.data.map((u) => (
+            <div key={u.id} className="flex items-center justify-between gap-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-zinc-100">{u.name}</p>
+                <p className="truncate text-xs text-zinc-500">{u.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={u.role === "admin" ? "danger" : "info"}>{u.role}</Badge>
+                <Button variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditUser(u); setEditForm({ name: u.name, role: u.role }); }}>
+                  <Edit className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" className="h-7 w-7 p-0" onClick={() => { setResetUser(u); setNewPassword(null); }}>
+                  <KeyRound className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" className="h-7 w-7 p-0" onClick={() => setDeleteUser(u)}>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create User Modal */}
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create User" confirmLabel="Create" confirmVariant="primary" onConfirm={() => createUser.mutate()}>
+        <div className="space-y-3">
+          <input className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" placeholder="Password (min 8 chars)" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <select className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "admin" | "user" })}>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal open={editUser !== null} onClose={() => setEditUser(null)} title="Edit User" confirmLabel="Save" confirmVariant="primary" onConfirm={() => updateUser.mutate()}>
+        <div className="space-y-3">
+          <input className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" placeholder="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+          <select className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value as "admin" | "user" })}>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal open={resetUser !== null} onClose={() => setResetUser(null)} title={`Reset Password: ${resetUser?.name}`} confirmLabel="Reset" confirmVariant="danger" onConfirm={() => resetPassword.mutate()}>
+        {newPassword ? (
+          <div className="rounded-md border border-emerald-800 bg-emerald-900/20 p-3">
+            <p className="text-sm text-emerald-400">New password:</p>
+            <p className="mt-1 font-mono text-lg text-emerald-200">{newPassword}</p>
+            <p className="mt-2 text-xs text-emerald-500">Share this with the user securely.</p>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-400">This will generate a new random password for {resetUser?.name}.</p>
+        )}
+      </Modal>
+
+      {/* Delete User Modal */}
+      <Modal open={deleteUser !== null} onClose={() => setDeleteUser(null)} title="Delete User?" confirmLabel="Delete" confirmVariant="danger" onConfirm={() => deleteUserMut.mutate()}>
+        <p className="text-sm text-zinc-400">This will permanently delete <span className="font-medium text-zinc-200">{deleteUser?.name}</span> ({deleteUser?.email}). This action cannot be undone.</p>
+      </Modal>
+    </Card>
+  );
+}
+
 export default function AdminDashboard() {
   return (
     <AdminGuard>
       <AdminShell>
         <div className="grid gap-6 lg:grid-cols-2">
+          <UserManagementPanel />
           <HealthStatusPanel />
           <BackupPanel />
           <RequestsPanel />
