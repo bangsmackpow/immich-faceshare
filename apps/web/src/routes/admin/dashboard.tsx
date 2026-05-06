@@ -37,6 +37,25 @@ function RequestsPanel() {
     refetchInterval: 15_000,
   });
 
+  const review = useMutation({
+    mutationFn: ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: "approved" | "denied";
+    }) =>
+      api(`/api/requests/${id}/review`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "requests"] });
+      qc.invalidateQueries({ queryKey: ["admin", "approvals"] });
+      setConfirmId(null);
+    },
+  });
+
   const pending = (data?.data ?? []).filter((r) => r.status === "pending");
 
   return (
