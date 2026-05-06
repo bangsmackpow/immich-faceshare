@@ -11,6 +11,14 @@ import { randomUUID } from "node:crypto";
 
 const auth = new Hono();
 
+const isSecure = process.env.NODE_ENV === "production" && process.env.USE_HTTPS !== "false";
+const secureFlag = isSecure ? "Secure; " : "";
+const cookieOpts = `Path=/; HttpOnly; ${secureFlag}SameSite=Lax`;
+
+function makeCookie(name: string, value: string, maxAge: number) {
+  return `${name}=${value}; ${cookieOpts}; Max-Age=${maxAge}`;
+}
+
 auth.get("/google/login", (c) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -30,7 +38,7 @@ auth.get("/google/login", (c) => {
   const state = randomUUID();
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid+email+profile&state=${state}`;
 
-  c.header("Set-Cookie", `oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=300`);
+  c.header("Set-Cookie", makeCookie("oauth_state", state, 300));
 
   logger.info({ redirectUrl: url.slice(0, 120) }, "redirecting to google");
   return c.redirect(url);
@@ -96,8 +104,8 @@ auth.get("/google/callback", async (c) => {
     const frontendUrl = process.env.FRONTEND_URL ?? `${new URL(c.req.url).origin}`;
     const redirectUrl = `${frontendUrl}/login?token=${sessionToken}`;
 
-    c.header("Set-Cookie", `oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
-    c.header("Set-Cookie", `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
+    c.header("Set-Cookie", makeCookie("oauth_state", "", 0));
+    c.header("Set-Cookie", makeCookie("session", sessionToken, 604800));
 
     return c.redirect(redirectUrl);
   } catch (err) {
