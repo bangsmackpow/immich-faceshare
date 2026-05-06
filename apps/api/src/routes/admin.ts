@@ -257,9 +257,11 @@ admin.get("/status", async (c) => {
   let immichVersion: string | null = null;
   try {
     const client = getImmichClient();
-    const info = await client.getPeople();
-    immichOk = true;
-    immichVersion = "connected";
+    immichOk = await client.ping();
+    if (immichOk) {
+      const people = await client.getPeople();
+      immichVersion = `${people.total} people indexed`;
+    }
   } catch { /* immich unreachable */ }
 
   const db = getDb();

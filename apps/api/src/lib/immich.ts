@@ -42,6 +42,7 @@ export interface ImmichPeopleResponse {
 
 const BASE_DELAY_MS = 1000;
 const MAX_RETRIES = 3;
+const FETCH_TIMEOUT_MS = 5000;
 
 class ImmichClient {
   private baseUrl: string;
@@ -51,6 +52,22 @@ class ImmichClient {
   constructor(baseUrl: string, apiKey: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.apiKey = apiKey;
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      return await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   private async fetch<T>(
@@ -70,7 +87,7 @@ class ImmichClient {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const res = await fetch(url, {
+        const res = await this.fetchWithTimeout(url, {
           ...options,
           method: "GET",
           headers: {
@@ -109,6 +126,24 @@ class ImmichClient {
     }
 
     throw lastError ?? new Error(`Immich request failed: ${path}`);
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      const res = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/server/ping`,
+        {
+          method: "GET",
+          headers: {
+            "x-api-key": this.apiKey,
+            accept: "application/json",
+          },
+        },
+      );
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   async getPeople(): Promise<ImmichPeopleResponse> {
