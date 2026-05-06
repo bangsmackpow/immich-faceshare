@@ -1,76 +1,24 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../lib/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { PageTransition } from "../components/animations";
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (res: { credential: string }) => void;
-          }) => void;
-          renderButton: (
-            el: HTMLElement,
-            options: { theme: string; size: string; text?: string },
-          ) => void;
-          prompt: () => void;
-        };
-      };
-    };
-  }
-}
+import { setToken } from "../lib/api";
 
 export default function LoginPage() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clientId, setClientId] = useState<string | null>(null);
-  const scriptLoaded = useRef(false);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then((cfg) => setClientId(cfg.googleClientId))
-      .catch(() => setError("Failed to load configuration"));
-  }, []);
-
-  useEffect(() => {
-    if (!clientId || scriptLoaded.current) return;
-    scriptLoaded.current = true;
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      window.google?.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (res) => {
-          try {
-            await login(res.credential);
-            navigate("/people", { replace: true });
-          } catch {
-            setError("Login failed");
-            setLoading(false);
-          }
-        },
-      });
-      const div = document.createElement("div");
-      div.id = "g-button";
-      div.style.display = "none";
-      document.body.appendChild(div);
-      window.google?.accounts.id.renderButton(div, {
-        theme: "outline",
-        size: "large",
-      });
-    };
-    script.onerror = () => setError("Failed to load Google Sign-In");
-    document.head.appendChild(script);
-  }, [clientId, login, navigate]);
+    const tokenParam = searchParams.get("token");
+    if (tokenParam) {
+      setToken(tokenParam);
+      window.location.href = "/people";
+    }
+  }, [searchParams, navigate]);
 
   if (user) {
     navigate("/people", { replace: true });
@@ -78,18 +26,9 @@ export default function LoginPage() {
   }
 
   const handleGoogleLogin = () => {
-    if (!clientId) {
-      setError("Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in your environment.");
-      return;
-    }
-    if (!window.google) {
-      setError("Google Sign-In is still loading. Try again.");
-      return;
-    }
     setLoading(true);
     setError(null);
-    document.getElementById("g-button")?.click();
-    setTimeout(() => setLoading(false), 30000);
+    window.location.href = "/api/auth/google/login";
   };
 
   return (
