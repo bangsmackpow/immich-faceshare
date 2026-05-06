@@ -1,17 +1,44 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
   name: text("name").notNull(),
-  googleId: text("google_id").notNull().unique(),
-  avatar: text("avatar"),
+  email: text("email").notNull().unique(),
+  emailVerified: integer("email_verified", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  image: text("image"),
+  password: text("password"),
   role: text("role", { enum: ["admin", "user"] }).notNull().default("user"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
 });
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_sessions_user_id").on(t.userId)],
+);
 
 export const people = sqliteTable("people", {
   id: text("id").primaryKey(),

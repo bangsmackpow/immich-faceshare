@@ -24,7 +24,7 @@ function serveFile(path: string) {
   });
 }
 import { getDb } from "./db/index.js";
-import { auth } from "./routes/auth.js";
+import { authRoutes } from "./routes/auth.js";
 import { peopleRoute } from "./routes/people.js";
 import { requests } from "./routes/requests.js";
 import { assets } from "./routes/assets.js";
@@ -32,7 +32,14 @@ import { downloads } from "./routes/downloads.js";
 import { admin } from "./routes/admin.js";
 const app = new Hono();
 
-app.use("*", cors({ origin: "*" }));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => origin,
+    credentials: true,
+    allowHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use("*", prettyJSON());
 app.use(
   "*",
@@ -56,10 +63,6 @@ for (const file of STATIC_FILES) {
 
 app.get("/", (c) => serveFile(join(WEB_DIST, "index.html")));
 
-app.get("/api/config", (c) => {
-  return c.json({ googleClientId: process.env.GOOGLE_CLIENT_ID ?? "" });
-});
-
 app.get("/health", (c) => {
   return c.json({
     status: "ok",
@@ -79,7 +82,7 @@ app.get("/health/db", (c) => {
   }
 });
 
-app.route("/api/auth", auth);
+app.route("/api/auth", authRoutes);
 app.route("/api/people", peopleRoute);
 app.route("/api/requests", requests);
 app.route("/api/assets", assets);

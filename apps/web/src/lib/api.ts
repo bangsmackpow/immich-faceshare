@@ -1,33 +1,17 @@
-const TOKEN_KEY = "faceshare_token";
-
-function getBase(): string {
-  return import.meta.env.DEV ? "" : "";
-}
-
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
 export async function api<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     "content-type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers["authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${getBase()}${path}`, { ...options, headers });
+  const res = await fetch(path, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));

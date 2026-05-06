@@ -1,42 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "../lib/auth";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { PageTransition } from "../components/animations";
-import { setToken, api } from "../lib/api";
 
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
-
-  useEffect(() => {
-    const tokenParam = searchParams.get("token");
-    if (tokenParam && !processing) {
-      setProcessing(true);
-      setToken(tokenParam);
-      api<{ user: { id: string; email: string; name: string; avatar: string | null; role: "admin" | "user" } }>("/api/auth/me")
-        .then(() => {
-          window.location.href = "/people";
-        })
-        .catch(() => {
-          setError("Authentication failed. Please try again.");
-          setProcessing(false);
-        });
-    }
-  }, [searchParams, navigate, processing]);
 
   if (user && !processing) {
     navigate("/people", { replace: true });
     return null;
   }
 
-  const handleGoogleLogin = () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setProcessing(true);
     setError(null);
-    window.location.href = "/api/auth/google/login";
+
+    try {
+      await login(email, password);
+      navigate("/people", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sign in failed. Check your credentials.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -63,40 +56,57 @@ export default function LoginPage() {
             </div>
           )}
 
-          {(processing || loading) ? (
-            <div className="flex items-center justify-center gap-3 rounded-md border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm text-zinc-400">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-500 border-t-zinc-200" />
-              <span>Signing in...</span>
+          <form onSubmit={handleSubmit} className="space-y-4 text-left">
+            <div>
+              <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-400">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                placeholder="you@example.com"
+              />
             </div>
-          ) : (
+
+            <div>
+              <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-400">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                placeholder="••••••••"
+              />
+            </div>
+
             <button
-              onClick={handleGoogleLogin}
-              className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+              type="submit"
+              disabled={processing || loading}
+              className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-zinc-700 bg-zinc-100 px-6 py-3 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50"
             >
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Sign in with Google
+              {processing || loading ? (
+                <>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-500 border-t-zinc-200" />
+                  <span>Signing in...</span>
+                </>
+              ) : (
+                "Sign in"
+              )}
             </button>
-          )}
+          </form>
 
           <p className="mt-6 text-xs text-zinc-600">
-            You need a Google account to access FaceShare.
+            Contact your administrator for account access.
           </p>
         </motion.div>
       </div>

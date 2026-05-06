@@ -4,17 +4,68 @@ import { logger } from "../lib/logger.js";
 export function migrate(sqlite: Database.Database) {
   logger.info("running schema migrations");
 
+  // ── Users table (better-auth compatible) ──
+  // Create new-style users table if it doesn't exist
   sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS users_new (
       id TEXT PRIMARY KEY,
-      email TEXT NOT NULL UNIQUE,
       name TEXT NOT NULL,
-      google_id TEXT NOT NULL UNIQUE,
-      avatar TEXT,
+      email TEXT NOT NULL UNIQUE,
+      email_verified INTEGER NOT NULL DEFAULT 0,
+      image TEXT,
+      password TEXT,
       role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user')),
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
+  `);
 
+  // Migrate existing data from old users table if it exists
+  const oldUsersExists = sqlite
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='users_old'",
+    )
+    .get();
+  if (!oldUsersExists) {
+    const hasGoogleId = sqlite
+      .prepare(
+        "SELECT COUNT(*) as cnt FROM pragma_table_info('users') WHERE name='google_id'",
+      )
+      .get() as { cnt: number };
+    if (hasGoogleId.cnt > 0) {
+      // Old schema exists, migrate data
+      sqlite.exec(`
+        INSERT OR IGNORE INTO users_new (id, name, email, email_verified, image, role, created_at, updated_at)
+        SELECT id, name, email, 0, avatar, role, created_at, created_at FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_new RENAME TO users;
+      `);
+    } else {
+      // No google_id column, just drop the new temp table
+      sqlite.exec("DROP TABLE users_new");
+    }
+  } else {
+    sqlite.exec("DROP TABLE users_new");
+  }
+
+  // ── Sessions table (better-auth) ──
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+  `);
+
+  // ── All other tables ──
+  sqlite.exec(`
     CREATE TABLE IF NOT EXISTS people (
       id TEXT PRIMARY KEY,
       immich_person_id TEXT NOT NULL UNIQUE,
@@ -81,6 +132,7 @@ export function migrate(sqlite: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_download_jobs_user ON download_jobs(user_id);
   `);
 
+  // ── FTS ──
   sqlite.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(
       name,
@@ -89,10 +141,9 @@ export function migrate(sqlite: Database.Database) {
     );
   `);
 
-  const ftsTriggers = sqlite.prepare(`
-    SELECT name FROM sqlite_master
-    WHERE type = 'trigger' AND name = 'people_ai'
-  `).get();
+  const ftsTriggers = sqlite.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'trigger' AND name = 'people_ai'",
+  ).get();
 
   if (!ftsTriggers) {
     sqlite.exec(`

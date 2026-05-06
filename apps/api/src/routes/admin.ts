@@ -12,13 +12,14 @@ import {
   users,
   downloadJobs,
 } from "../db/schema.js";
-import { authMiddleware, adminGuard } from "../middleware/auth.js";
+import { authMiddleware, adminGuard, type AuthUser } from "../middleware/auth.js";
 import { sendError, sendSuccess } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
 import { sendApprovalNotification } from "../lib/email.js";
 import { getImmichClient } from "../lib/immich.js";
 import { jobQueue } from "../lib/download-queue.js";
 import { syncAllPeople } from "../lib/sync.js";
+import { hash } from "bcrypt";
 
 const admin = new Hono();
 admin.use("*", authMiddleware, adminGuard);
@@ -72,7 +73,7 @@ admin.get("/approvals", (c) => {
 
 // ── Revoke approval ──
 admin.post("/approvals/:id/revoke", async (c) => {
-  const user = c.get("user");
+  const user = c.get("user") as AuthUser;
   const id = c.req.param("id");
   const db = getDb();
 
@@ -153,7 +154,7 @@ admin.get("/playground/endpoints", (c) => {
 });
 
 admin.post("/playground/execute", async (c) => {
-  const user = c.get("user");
+  const user = c.get("user") as AuthUser;
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   const endpoint = body?.endpoint;
 
@@ -249,7 +250,7 @@ admin.get("/logs", (c) => {
 
 // ── Sync People ──
 admin.post("/sync", async (c) => {
-  const user = c.get("user");
+  const user = c.get("user") as AuthUser;
   try {
     const result = await syncAllPeople();
     getDb().insert(auditLog).values({
@@ -394,6 +395,187 @@ admin.get("/backups", (c) => {
     return sendSuccess(c, { data: files });
   } catch (err) {
     return sendError(c, 500, "LIST_BACKUPS_FAILED", (err as Error).message);
+  }
+});
+
+// ── User Management ──
+admin.get("/users", (c) => {
+  const db = getDb();
+  const rows = db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt))
+    .all();
+  return sendSuccess(c, { data: rows, total: rows.length });
+});
+
+admin.post("/users", async (c) => {
+  const adminUser = c.get("user") as AuthUser;
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const email = body?.email as string | undefined;
+  const name = body?.name as string | undefined;
+  const password = body?.password as string | undefined;
+  const role = (body?.role as "admin" | "user") ?? "user";
+
+  if (!email || !name || !password) {
+    return sendError(c, 400, "INVALID_REQUEST", "email, name, and password are required");
+  }
+  if (password.length < 8) {
+    return sendError(c, 400, "INVALID_REQUEST", "password must be at least 8 characters");
+  }
+
+  try {
+    const res = await fetch(`http://localhost:${process.env.PORT ?? "3001"}/api/auth/sign-up/email`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null);
+      return sendError(c, 400, "CREATE_FAILED", errBody?.message ?? "Failed to create user");
+    }
+
+    const created = (await res.json()) as { user: { id: string } };
+    const db = getDb();
+    db.update(users)
+      .set({ role })
+      .where(eq(users.id, created.user.id))
+      .run();
+
+    db.insert(auditLog)
+      .values({
+        id: randomUUID(),
+        userId: adminUser.id,
+        action: "user.create",
+        details: JSON.stringify({ userId: created.user.id, email, role }),
+        ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
+        createdAt: new Date(),
+      })
+      .run();
+
+    return sendSuccess(c, { data: { id: created.user.id, email, name, role } });
+  } catch (err) {
+    return sendError(c, 500, "CREATE_FAILED", (err as Error).message);
+  }
+});
+
+admin.put("/users/:id", async (c) => {
+  const adminUser = c.get("user") as AuthUser;
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const name = body?.name as string | undefined;
+  const role = body?.role as "admin" | "user" | undefined;
+
+  if (id === adminUser.id && role && role !== "admin") {
+    return sendError(c, 400, "INVALID_REQUEST", "Cannot demote yourself");
+  }
+
+  const db = getDb();
+  const existing = db.select().from(users).where(eq(users.id, id)).get();
+  if (!existing) {
+    return sendError(c, 404, "NOT_FOUND", "User not found");
+  }
+
+  const updates: Record<string, string> = {};
+  if (name) updates.name = name;
+  if (role) updates.role = role;
+
+  if (Object.keys(updates).length > 0) {
+    db.update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .run();
+  }
+
+  db.insert(auditLog)
+    .values({
+      id: randomUUID(),
+      userId: adminUser.id,
+      action: "user.update",
+      details: JSON.stringify({ userId: id, ...updates }),
+      ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
+      createdAt: new Date(),
+    })
+    .run();
+
+  return sendSuccess(c, { data: { ...existing, ...updates } });
+});
+
+admin.delete("/users/:id", (c) => {
+  const adminUser = c.get("user") as AuthUser;
+  const id = c.req.param("id");
+
+  if (id === adminUser.id) {
+    return sendError(c, 400, "INVALID_REQUEST", "Cannot delete yourself");
+  }
+
+  const db = getDb();
+  const existing = db.select().from(users).where(eq(users.id, id)).get();
+  if (!existing) {
+    return sendError(c, 404, "NOT_FOUND", "User not found");
+  }
+
+  db.delete(users).where(eq(users.id, id)).run();
+
+  db.insert(auditLog)
+    .values({
+      id: randomUUID(),
+      userId: adminUser.id,
+      action: "user.delete",
+      details: JSON.stringify({ userId: id, email: existing.email }),
+      ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
+      createdAt: new Date(),
+    })
+    .run();
+
+  return sendSuccess(c, { ok: true });
+});
+
+admin.post("/users/:id/reset-password", async (c) => {
+  const adminUser = c.get("user") as AuthUser;
+  const id = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const newPassword = (body?.password as string) ?? randomUUID().slice(0, 16);
+
+  if (newPassword.length < 8) {
+    return sendError(c, 400, "INVALID_REQUEST", "password must be at least 8 characters");
+  }
+
+  const db = getDb();
+  const existing = db.select().from(users).where(eq(users.id, id)).get();
+  if (!existing) {
+    return sendError(c, 404, "NOT_FOUND", "User not found");
+  }
+
+  try {
+    const hashed = await hash(newPassword, 10);
+    db.update(users)
+      .set({ password: hashed, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .run();
+
+    db.insert(auditLog)
+      .values({
+        id: randomUUID(),
+        userId: adminUser.id,
+        action: "user.reset_password",
+        details: JSON.stringify({ userId: id, email: existing.email }),
+        ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
+        createdAt: new Date(),
+      })
+      .run();
+
+    return sendSuccess(c, { data: { password: newPassword } });
+  } catch (err) {
+    return sendError(c, 500, "RESET_FAILED", (err as Error).message);
   }
 });
 
