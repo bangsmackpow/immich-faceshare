@@ -8,7 +8,7 @@ import { PageTransition, CardHover, FadeIn, StaggerGrid, StaggerItem } from "../
 import { Button } from "../../components/ui/button";
 import { Skeleton } from "../../components/shared/skeleton";
 import { Modal } from "../../components/ui/modal";
-import { Search, User, LogOut } from "lucide-react";
+import { Search, User, LogOut, Shield } from "lucide-react";
 
 interface Person {
   id: string;
@@ -143,6 +143,15 @@ export default function PeopleDirectory() {
                 <span className="hidden text-xs text-zinc-500 sm:block">
                   {user.email}
                 </span>
+              )}
+              {user?.role === "admin" && (
+                <button
+                  onClick={() => navigate("/admin")}
+                  className="rounded-md p-2 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-300"
+                  aria-label="Admin dashboard"
+                >
+                  <Shield size={16} />
+                </button>
               )}
               <button
                 onClick={() => {
