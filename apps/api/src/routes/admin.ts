@@ -1,20 +1,23 @@
 import { Hono } from "hono";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, count } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { getDb } from "../db/index.js";
+import { readFileSync, writeFileSync, copyFileSync, existsSync, statSync, readdirSync, mkdirSync } from "node:fs";
+import { join, basename } from "node:path";
+import { getDb, checkDbHealth } from "../db/index.js";
 import {
   accessRequests,
   approvals as approvalsTable,
   auditLog,
   people,
   users,
+  downloadJobs,
 } from "../db/schema.js";
 import { authMiddleware, adminGuard } from "../middleware/auth.js";
 import { sendError, sendSuccess } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
 import { sendApprovalNotification } from "../lib/email.js";
+import { getImmichClient } from "../lib/immich.js";
+import { jobQueue } from "../lib/download-queue.js";
 
 const admin = new Hono();
 admin.use("*", authMiddleware, adminGuard);
@@ -241,6 +244,135 @@ admin.get("/logs", (c) => {
       return sendSuccess(c, { data: [], total: 0 });
     }
     throw err;
+  }
+});
+
+// ── Health & Status ──
+admin.get("/status", async (c) => {
+  const start = Date.now();
+
+  const dbHealth = checkDbHealth();
+  const dbOk = dbHealth.healthy;
+
+  let immichOk = false;
+  let immichVersion: string | null = null;
+  try {
+    const client = getImmichClient();
+    const info = await client.getPeople();
+    immichOk = true;
+    immichVersion = "connected";
+  } catch { /* immich unreachable */ }
+
+  const db = getDb();
+  const userCount = db.select({ count: count() }).from(users).get()?.count ?? 0;
+  const personCount = db.select({ count: count() }).from(people).get()?.count ?? 0;
+  const pendingRequests = db
+    .select({ count: count() })
+    .from(accessRequests)
+    .where(eq(accessRequests.status, "pending"))
+    .get()?.count ?? 0;
+  const activeDownloads = jobQueue.length;
+
+  const dbPath = process.env.DATABASE_PATH ?? "/data/faceshare.db";
+  const dbSize = existsSync(dbPath) ? statSync(dbPath).size : 0;
+
+  return sendSuccess(c, {
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    database: {
+      healthy: dbOk,
+      error: dbHealth.error ?? null,
+      path: dbPath,
+      sizeBytes: dbSize,
+      latencyMs: Date.now() - start,
+    },
+    immich: {
+      healthy: immichOk,
+      version: immichVersion,
+    },
+    stats: {
+      users: userCount,
+      people: personCount,
+      pendingRequests,
+      activeDownloads,
+    },
+  });
+});
+
+// ── DB Backup ──
+admin.post("/backup", (c) => {
+  const dbPath = process.env.DATABASE_PATH ?? "/data/faceshare.db";
+  const backupDir = process.env.BACKUP_DIR ?? "/data/backups";
+
+  if (!existsSync(dbPath)) {
+    return sendError(c, 404, "DB_NOT_FOUND", "Database file not found");
+  }
+
+  if (!existsSync(backupDir)) {
+    mkdirSync(backupDir, { recursive: true });
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupPath = join(backupDir, `faceshare-${timestamp}.db`);
+
+  try {
+    copyFileSync(dbPath, backupPath);
+    logger.info({ backupPath, size: statSync(backupPath).size }, "db backup created");
+    return sendSuccess(c, { path: backupPath, size: statSync(backupPath).size, createdAt: new Date() });
+  } catch (err) {
+    return sendError(c, 500, "BACKUP_FAILED", (err as Error).message);
+  }
+});
+
+// ── DB Restore ──
+admin.post("/restore", async (c) => {
+  const dbPath = process.env.DATABASE_PATH ?? "/data/faceshare.db";
+  const backupDir = process.env.BACKUP_DIR ?? "/data/backups";
+
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  const backupFile = body?.backupFile as string | undefined;
+
+  if (!backupFile) {
+    return sendError(c, 400, "INVALID_REQUEST", "backupFile is required");
+  }
+
+  const safeName = basename(backupFile);
+  const sourcePath = join(backupDir, safeName);
+
+  if (!existsSync(sourcePath)) {
+    return sendError(c, 404, "BACKUP_NOT_FOUND", `Backup file not found: ${safeName}`);
+  }
+
+  try {
+    copyFileSync(sourcePath, dbPath);
+    logger.info({ source: sourcePath }, "db restored from backup");
+    return sendSuccess(c, { ok: true, message: "Database restored. Restart required for changes to take effect." });
+  } catch (err) {
+    return sendError(c, 500, "RESTORE_FAILED", (err as Error).message);
+  }
+});
+
+// ── List Backups ──
+admin.get("/backups", (c) => {
+  const backupDir = process.env.BACKUP_DIR ?? "/data/backups";
+
+  if (!existsSync(backupDir)) {
+    return sendSuccess(c, { data: [] });
+  }
+
+  try {
+    const files = readdirSync(backupDir)
+      .filter((f) => f.endsWith(".db"))
+      .map((f) => {
+        const path = join(backupDir, f);
+        const stat = statSync(path);
+        return { name: f, size: stat.size, createdAt: stat.mtime };
+      })
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return sendSuccess(c, { data: files });
+  } catch (err) {
+    return sendError(c, 500, "LIST_BACKUPS_FAILED", (err as Error).message);
   }
 });
 

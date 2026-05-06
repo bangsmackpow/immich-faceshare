@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Modal } from "../../components/ui/modal";
+import { CheckCircle, XCircle, Database, HardDrive, Users, Clock, Download, RefreshCw, Server } from "lucide-react";
 
 interface RequestRow {
   id: string;
@@ -237,11 +238,241 @@ function RecentLogPanel() {
   );
 }
 
+function HealthStatusPanel() {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["admin", "status"],
+    queryFn: () =>
+      api<{
+        data: {
+          uptime: number;
+          memory: { rss: number; heapUsed: number; heapTotal: number };
+          database: { healthy: boolean; path: string; sizeBytes: number; latencyMs: number; error: string | null };
+          immich: { healthy: boolean; version: string | null };
+          stats: { users: number; people: number; pendingRequests: number; activeDownloads: number };
+        };
+      }>("/api/admin/status"),
+    refetchInterval: 30_000,
+  });
+
+  const status = data?.data;
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  };
+
+  const formatUptime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
+
+  return (
+    <Card title="System Health">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-zinc-500">Uptime: {status ? formatUptime(status.uptime) : "..."}</p>
+        <Button variant="ghost" onClick={() => refetch()}>
+          <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        {/* Database */}
+        <div className="rounded-lg border border-zinc-800 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Database className="h-4 w-4 text-zinc-400" />
+            <span className="text-sm font-medium text-zinc-200">Database</span>
+            {status && (
+              status.database.healthy
+                ? <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                : <XCircle className="h-4 w-4 text-red-500 ml-auto" />
+            )}
+          </div>
+          {status && (
+            <div className="space-y-1 text-xs text-zinc-500">
+              <p>Latency: {status.database.latencyMs}ms</p>
+              <p>Size: {formatBytes(status.database.sizeBytes)}</p>
+              {status.database.error && (
+                <p className="text-red-400">{status.database.error}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Immich */}
+        <div className="rounded-lg border border-zinc-800 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Server className="h-4 w-4 text-zinc-400" />
+            <span className="text-sm font-medium text-zinc-200">Immich</span>
+            {status && (
+              status.immich.healthy
+                ? <CheckCircle className="h-4 w-4 text-emerald-500 ml-auto" />
+                : <XCircle className="h-4 w-4 text-red-500 ml-auto" />
+            )}
+          </div>
+          {status && (
+            <div className="space-y-1 text-xs text-zinc-500">
+              <p>{status.immich.version ?? "unreachable"}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Users */}
+        <div className="rounded-lg border border-zinc-800 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="h-4 w-4 text-zinc-400" />
+            <span className="text-sm font-medium text-zinc-200">Users</span>
+          </div>
+          {status && (
+            <div className="space-y-1 text-xs text-zinc-500">
+              <p>Total: {status.stats.users}</p>
+              <p>Pending: {status.stats.pendingRequests}</p>
+            </div>
+          )}
+        </div>
+
+        {/* People & Downloads */}
+        <div className="rounded-lg border border-zinc-800 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <HardDrive className="h-4 w-4 text-zinc-400" />
+            <span className="text-sm font-medium text-zinc-200">Content</span>
+          </div>
+          {status && (
+            <div className="space-y-1 text-xs text-zinc-500">
+              <p>People: {status.stats.people}</p>
+              <p>Downloads: {status.stats.activeDownloads}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {status && (
+        <div className="mt-4 pt-3 border-t border-zinc-800">
+          <p className="text-xs text-zinc-600">Memory: RSS {formatBytes(status.memory.rss)} / Heap {formatBytes(status.memory.heapUsed)} / {formatBytes(status.memory.heapTotal)}</p>
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="py-8 text-center text-sm text-zinc-500">Loading...</div>
+      )}
+    </Card>
+  );
+}
+
+function BackupPanel() {
+  const qc = useQueryClient();
+  const [restoreFile, setRestoreFile] = useState<string | null>(null);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "backups"],
+    queryFn: () =>
+      api<{ data: { name: string; size: number; createdAt: string }[] }>("/api/admin/backups"),
+    refetchInterval: 30_000,
+  });
+
+  const createBackup = useMutation({
+    mutationFn: () => api("/api/admin/backup", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "backups"] });
+    },
+  });
+
+  const restoreBackup = useMutation({
+    mutationFn: (backupFile: string) =>
+      api("/api/admin/restore", {
+        method: "POST",
+        body: JSON.stringify({ backupFile }),
+      }),
+    onSuccess: () => {
+      setShowRestoreModal(false);
+      setRestoreFile(null);
+      qc.invalidateQueries({ queryKey: ["admin", "backups"] });
+    },
+  });
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  };
+
+  return (
+    <Card title="Database Backups">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-zinc-500">{data?.data?.length ?? 0} backup(s)</p>
+        <Button
+          variant="primary"
+          loading={createBackup.isPending}
+          onClick={() => createBackup.mutate()}
+        >
+          <Download className="h-3 w-3 mr-1" /> Create Backup
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="py-8 text-center text-sm text-zinc-500">Loading...</div>
+      ) : !data?.data?.length ? (
+        <div className="py-8 text-center text-sm text-zinc-500">No backups yet</div>
+      ) : (
+        <div className="divide-y divide-zinc-800">
+          {data.data.map((b) => (
+            <div key={b.name} className="flex items-center justify-between gap-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-mono text-zinc-200 truncate">{b.name}</p>
+                <p className="text-xs text-zinc-500">
+                  {formatBytes(b.size)} &middot; {new Date(b.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setRestoreFile(b.name);
+                  setShowRestoreModal(true);
+                }}
+              >
+                Restore
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        open={showRestoreModal}
+        onClose={() => {
+          setShowRestoreModal(false);
+          setRestoreFile(null);
+        }}
+        title="Restore Database?"
+        confirmLabel="Restore"
+        confirmVariant="danger"
+        onConfirm={() => {
+          if (restoreFile) {
+            restoreBackup.mutate(restoreFile);
+          }
+        }}
+      >
+        <p className="text-sm text-zinc-400">
+          This will replace the current database with <span className="font-mono text-zinc-200">{restoreFile}</span>.
+          The API server must be restarted for changes to take effect.
+        </p>
+      </Modal>
+    </Card>
+  );
+}
+
 export default function AdminDashboard() {
   return (
     <AdminGuard>
       <AdminShell>
         <div className="grid gap-6 lg:grid-cols-2">
+          <HealthStatusPanel />
+          <BackupPanel />
           <RequestsPanel />
           <ApprovalsPanel />
           <div className="lg:col-span-2">

@@ -13,19 +13,44 @@ const auth = new Hono();
 
 auth.get("/google/login", (c) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+  logger.info(
+    {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasRedirectUri: !!redirectUri,
+      redirectUri,
+    },
+    "google login initiated",
+  );
   if (!clientId || !redirectUri) {
     return sendError(c, 500, "CONFIG_ERROR", "GOOGLE_CLIENT_ID or GOOGLE_CALLBACK_URL not set");
   }
   const state = randomUUID();
-  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid+email+profile&state=${state}`;
-  logger.info({ state }, "google oauth redirect");
+  const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid+email+profile&state=${state}`;
+
+  c.header("Set-Cookie", `oauth_state=${state}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=300`);
+
+  logger.info({ redirectUrl: url.slice(0, 120) }, "redirecting to google");
   return c.redirect(url);
 });
 
 auth.get("/google/callback", async (c) => {
   const code = c.req.query("code");
   const state = c.req.query("state");
+
+  const cookies = c.req.header("cookie") ?? "";
+  const stateCookie = cookies
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith("oauth_state="))
+    ?.split("=")[1];
+
+  if (!stateCookie || state !== stateCookie) {
+    logger.warn({ state, stateCookie }, "oauth state mismatch");
+    return sendError(c, 400, "INVALID_STATE", "OAuth state validation failed");
+  }
 
   if (!code) {
     return sendError(c, 400, "INVALID_REQUEST", "Missing authorization code");
@@ -69,7 +94,12 @@ auth.get("/google/callback", async (c) => {
     const sessionToken = await createSessionToken(user);
 
     const frontendUrl = process.env.FRONTEND_URL ?? `${new URL(c.req.url).origin}`;
-    return c.redirect(`${frontendUrl}/login?token=${sessionToken}`);
+    const redirectUrl = `${frontendUrl}/login?token=${sessionToken}`;
+
+    c.header("Set-Cookie", `oauth_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);
+    c.header("Set-Cookie", `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=604800`);
+
+    return c.redirect(redirectUrl);
   } catch (err) {
     logger.error(err, "google callback failed");
     return sendError(c, 401, "AUTH_FAILED", "Google auth failed");

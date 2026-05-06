@@ -1,6 +1,6 @@
 # FaceShare
 
-Face discovery and sharing for Immich. Automatically finds faces in your Immich library, groups them by person, and provides a web UI for viewing and sharing.
+Face discovery and sharing for Immich. Automatically finds faces in your Immich library, groups them by person, and provides a web UI for viewing, sharing, and managing access.
 
 ## Quick Start
 
@@ -19,6 +19,28 @@ docker compose up -d
 
 The service runs on `http://localhost:3001` by default.
 
+## Features
+
+- **Face Discovery** — Automatically pulls people from your Immich library
+- **Photo Sharing** — Users request access to specific people, admins approve/deny
+- **Google OAuth** — Sign in with Google, no passwords
+- **Email Notifications** — Users notified when access is approved
+- **Bulk Downloads** — Queue-based ZIP download for approved photos
+- **Admin Dashboard** — Manage requests, approvals, audit logs, DB backups, and system health
+- **Docker-Ready** — Single compose file, pre-built images on GHCR
+
+## Admin Dashboard
+
+Visit `/admin` to access the admin panel (requires `ADMIN_EMAIL` match):
+
+| Panel | Description |
+|---|---|
+| **System Health** | Real-time status for database, Immich, memory, uptime, and queue depth |
+| **Database Backups** | Create, list, and restore timestamped database backups |
+| **Pending Requests** | Approve or deny user access requests |
+| **Active Approvals** | View and revoke existing access grants |
+| **Audit Log** | View recent system activity and admin actions |
+
 ## Configuration
 
 All configuration is via environment variables (see `.env.example`):
@@ -29,7 +51,9 @@ All configuration is via environment variables (see `.env.example`):
 | `IMMICH_URL` | Immich server URL | `http://immich:2283` |
 | `SESSION_SECRET` | Session encryption secret | `change-me-to-a-random-secret` |
 | `DATABASE_PATH` | SQLite database path | `/data/faceshare.db` |
+| `BACKUP_DIR` | Database backup directory | `/data/backups` |
 | `LOG_DIR` | Log output directory | `/data/logs` |
+| `LOG_TO_FILE` | Write logs to file (`true`/`false`) | `false` (stdout only) |
 | `DOWNLOADS_DIR` | ZIP download working directory | `/data/downloads` |
 | `PORT` | HTTP listen port | `3001` |
 | `NODE_ENV` | Environment mode | `development` |
@@ -177,6 +201,42 @@ Start the service and open it in your browser. You should see a **Sign in with G
 | Login button doesn't appear | `VITE_GOOGLE_CLIENT_ID` isn't set in the frontend build environment |
 | `err_popup_closed_by_user` | User closed the popup — normal, just try again |
 | "Access denied: your email is not on the allowed list" | Email doesn't match `ALLOWED_EMAILS` or `ALLOWED_DOMAINS` |
+
+## Database Management
+
+### Backups
+
+Backups are stored in `/data/backups` (configurable via `BACKUP_DIR`). You can create and restore backups via the admin dashboard, or manually:
+
+```bash
+# Manual backup (inside container)
+docker compose exec faceshare cp /data/faceshare.db /data/backups/faceshare-$(date +%F).db
+
+# List backups
+docker compose exec faceshare ls -lh /data/backups/
+
+# Restore (requires container restart)
+docker compose exec faceshare cp /data/backups/faceshare-YYYY-MM-DD.db /data/faceshare.db
+docker compose restart faceshare
+```
+
+### Health Checks
+
+The database includes built-in health monitoring:
+- `GET /api/admin/status` — Full system health report
+- `GET /health` — Basic liveness check (used by Docker healthcheck)
+- WAL integrity verified via `PRAGMA quick_check`
+
+## Production Architecture
+
+For scaling recommendations, caching strategies, rate limiting, CDN setup, and deployment topologies, see [docs/production-architecture.md](docs/production-architecture.md).
+
+Key recommendations for production:
+- Add Redis for caching, rate limiting, and queue management
+- Migrate to PostgreSQL at 5K+ users
+- Use presigned URLs for photo delivery instead of API proxy
+- Add OpenTelemetry for observability
+- Implement automated backup rotation and off-site replication
 
 ## Docker Images
 

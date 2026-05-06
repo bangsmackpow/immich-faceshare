@@ -52,8 +52,24 @@ export async function verifySessionToken(
 }
 
 export const authMiddleware = createMiddleware(async (c, next) => {
+  let token: string | undefined;
+
   const header = c.req.header("authorization");
-  const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
+  if (header?.startsWith("Bearer ")) {
+    token = header.slice(7);
+  }
+
+  if (!token) {
+    const cookies = c.req.header("cookie") ?? "";
+    const sessionCookie = cookies
+      .split(";")
+      .map((c) => c.trim())
+      .find((c) => c.startsWith("session="))
+      ?.split("=")[1];
+    if (sessionCookie) {
+      token = sessionCookie;
+    }
+  }
 
   if (!token) {
     return c.json({ code: "UNAUTHORIZED", message: "Missing auth token" }, 401);

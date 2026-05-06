@@ -3,28 +3,29 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 const logDir = process.env.LOG_DIR ?? join(process.cwd(), "logs");
+const isDev = process.env.NODE_ENV !== "production";
 
-if (!existsSync(logDir)) {
+if (!isDev && !existsSync(logDir)) {
   mkdirSync(logDir, { recursive: true });
 }
 
-const isDev = process.env.NODE_ENV !== "production";
+const transports: pino.TransportTargetOptions[] = [];
+
+if (isDev) {
+  transports.push({ target: "pino-pretty", options: { colorize: true } });
+} else {
+  transports.push({ target: "pino/file", options: { destination: 1 } });
+  if (process.env.LOG_TO_FILE === "true") {
+    transports.push({
+      target: "pino/file",
+      options: { destination: join(logDir, "faceshare.log"), mkdir: true },
+    });
+  }
+}
 
 export const logger = pino(
   {
     level: process.env.LOG_LEVEL ?? "info",
-    ...(isDev && {
-      transport: {
-        target: "pino-pretty",
-        options: { colorize: true },
-      },
-    }),
+    transport: { targets: transports },
   },
-  isDev
-    ? undefined
-    : pino.destination({
-        dest: join(logDir, "faceshare.log"),
-        minLength: 4096,
-        sync: false,
-      }),
 );

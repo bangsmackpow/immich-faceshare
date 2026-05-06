@@ -3,30 +3,38 @@ import { useAuth } from "../lib/auth";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { PageTransition } from "../components/animations";
-import { setToken } from "../lib/api";
+import { setToken, api } from "../lib/api";
 
 export default function LoginPage() {
-  const { login, user } = useAuth();
+  const { login, user, loading } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const [error, setError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     const tokenParam = searchParams.get("token");
-    if (tokenParam) {
+    if (tokenParam && !processing) {
+      setProcessing(true);
       setToken(tokenParam);
-      window.location.href = "/people";
+      api<{ user: { id: string; email: string; name: string; avatar: string | null; role: "admin" | "user" } }>("/api/auth/me")
+        .then(() => {
+          window.location.href = "/people";
+        })
+        .catch(() => {
+          setError("Authentication failed. Please try again.");
+          setProcessing(false);
+        });
     }
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, processing]);
 
-  if (user) {
+  if (user && !processing) {
     navigate("/people", { replace: true });
     return null;
   }
 
   const handleGoogleLogin = () => {
-    setLoading(true);
+    setProcessing(true);
     setError(null);
     window.location.href = "/api/auth/google/login";
   };
@@ -55,14 +63,16 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600 disabled:opacity-50"
-          >
-            {loading ? (
+          {(processing || loading) ? (
+            <div className="flex items-center justify-center gap-3 rounded-md border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm text-zinc-400">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-500 border-t-zinc-200" />
-            ) : (
+              <span>Signing in...</span>
+            </div>
+          ) : (
+            <button
+              onClick={handleGoogleLogin}
+              className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-zinc-700 bg-zinc-900 px-6 py-3 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+            >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -81,9 +91,9 @@ export default function LoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                 />
               </svg>
-            )}
-            {loading ? "Signing in..." : "Sign in with Google"}
-          </button>
+              Sign in with Google
+            </button>
+          )}
 
           <p className="mt-6 text-xs text-zinc-600">
             You need a Google account to access FaceShare.
