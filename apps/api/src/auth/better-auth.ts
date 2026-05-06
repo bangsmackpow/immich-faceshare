@@ -1,47 +1,58 @@
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb } from "../db/index.js";
 import * as schema from "../db/schema.js";
 
-export const auth = betterAuth({
-  database: drizzleAdapter(getDb(), {
-    provider: "sqlite",
-    schema: {
-      user: schema.users,
-      session: schema.sessions,
+let _auth: ReturnType<typeof createAuthInstance> | null = null;
+
+function createAuthInstance() {
+  return betterAuth({
+    database: drizzleAdapter(getDb(), {
+      provider: "sqlite",
+      schema: {
+        user: schema.users,
+        session: schema.sessions,
+      },
+    }),
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: false,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
     },
-  }),
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
-    minPasswordLength: 8,
-    maxPasswordLength: 128,
-  },
-  user: {
-    additionalFields: {
-      role: {
-        type: "string",
-        required: true,
-        defaultValue: "user",
-        input: false,
+    user: {
+      additionalFields: {
+        role: {
+          type: "string",
+          required: true,
+          defaultValue: "user",
+          input: false,
+        },
       },
     },
-  },
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-    updateAge: 60 * 60 * 24, // 1 day
-    cookieCache: {
-      enabled: true,
-      maxAge: 5 * 60, // 5 minutes
+    session: {
+      expiresIn: 60 * 60 * 24 * 7, // 7 days
+      updateAge: 60 * 60 * 24, // 1 day
+      cookieCache: {
+        enabled: true,
+        maxAge: 5 * 60, // 5 minutes
+      },
     },
-  },
-  advanced: {
-    cookiePrefix: "faceshare",
-    crossSubDomainCookies: {
-      enabled: false,
+    advanced: {
+      cookiePrefix: "faceshare",
+      crossSubDomainCookies: {
+        enabled: false,
+      },
     },
-  },
-});
+  });
+}
+
+export function getAuth() {
+  if (!_auth) {
+    _auth = createAuthInstance();
+  }
+  return _auth;
+}
 
 export type AuthUser = {
   id: string;

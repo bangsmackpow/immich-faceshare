@@ -1,5 +1,5 @@
 import { createMiddleware } from "hono/factory";
-import { auth } from "../auth/better-auth.js";
+import { getAuth } from "../auth/better-auth.js";
 import { getDb } from "../db/index.js";
 import { users } from "../db/schema.js";
 import { eq } from "drizzle-orm";
@@ -37,7 +37,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   }
 
   try {
-    const session = await auth.api.getSession({
+    const session = await getAuth().api.getSession({
       headers: c.req.raw.headers,
     });
 
