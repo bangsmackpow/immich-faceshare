@@ -140,11 +140,10 @@ admin.get("/audit-log", (c) => {
 
 // ── API playground ──
 const IMMICH_ENDPOINTS = [
-  "/api/persons",
-  "/api/server-info/version",
-  "/api/server-info/ping",
+  "/api/people",
+  "/api/server/ping",
   "/api/assets",
-  "/api/search/assets",
+  "/api/search/metadata",
   "/api/albums",
 ];
 

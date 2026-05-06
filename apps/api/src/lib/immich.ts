@@ -113,12 +113,12 @@ class ImmichClient {
 
   async getPeople(): Promise<ImmichPeopleResponse> {
     return this.fetch<ImmichPeopleResponse>(
-      "/api/persons?withHidden=false",
+      "/api/people?withHidden=false",
     );
   }
 
   async getPerson(id: string): Promise<ImmichPerson> {
-    return this.fetch<ImmichPerson>(`/api/persons/${encodeURIComponent(id)}`);
+    return this.fetch<ImmichPerson>(`/api/people/${encodeURIComponent(id)}`);
   }
 
   async searchAssetsByPerson(
@@ -136,7 +136,7 @@ class ImmichClient {
       params.set("updatedAfter", afterDate);
     }
     return this.fetch<ImmichSearchResponse>(
-      `/api/search/assets?${params.toString()}`,
+      `/api/search/metadata?${params.toString()}`,
     );
   }
 
