@@ -33,27 +33,8 @@ function RequestsPanel() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "requests"],
-    queryFn: () => api<{ data: RequestRow[] }>("/api/admin/requests"),
+    queryFn: () => api<{ data: RequestRow[]; total: number }>("/api/admin/requests"),
     refetchInterval: 15_000,
-  });
-
-  const review = useMutation({
-    mutationFn: ({
-      id,
-      status,
-    }: {
-      id: string;
-      status: "approved" | "denied";
-    }) =>
-      api(`/api/requests/${id}/review`, {
-        method: "POST",
-        body: JSON.stringify({ status }),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "requests"] });
-      qc.invalidateQueries({ queryKey: ["admin", "approvals"] });
-      setConfirmId(null);
-    },
   });
 
   const pending = (data?.data ?? []).filter((r) => r.status === "pending");
@@ -243,18 +224,16 @@ function HealthStatusPanel() {
     queryKey: ["admin", "status"],
     queryFn: () =>
       api<{
-        data: {
-          uptime: number;
-          memory: { rss: number; heapUsed: number; heapTotal: number };
-          database: { healthy: boolean; path: string; sizeBytes: number; latencyMs: number; error: string | null };
-          immich: { healthy: boolean; version: string | null };
-          stats: { users: number; people: number; pendingRequests: number; activeDownloads: number };
-        };
+        uptime: number;
+        memory: { rss: number; heapUsed: number; heapTotal: number };
+        database: { healthy: boolean; path: string; sizeBytes: number; latencyMs: number; error: string | null };
+        immich: { healthy: boolean; version: string | null };
+        stats: { users: number; people: number; pendingRequests: number; activeDownloads: number };
       }>("/api/admin/status"),
     refetchInterval: 30_000,
   });
 
-  const status = data?.data;
+  const status = data;
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
     const k = 1024;
