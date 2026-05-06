@@ -18,6 +18,7 @@ import { logger } from "../lib/logger.js";
 import { sendApprovalNotification } from "../lib/email.js";
 import { getImmichClient } from "../lib/immich.js";
 import { jobQueue } from "../lib/download-queue.js";
+import { syncAllPeople } from "../lib/sync.js";
 
 const admin = new Hono();
 admin.use("*", authMiddleware, adminGuard);
@@ -243,6 +244,25 @@ admin.get("/logs", (c) => {
       return sendSuccess(c, { data: [], total: 0 });
     }
     throw err;
+  }
+});
+
+// ── Sync People ──
+admin.post("/sync", async (c) => {
+  const user = c.get("user");
+  try {
+    const result = await syncAllPeople();
+    getDb().insert(auditLog).values({
+      id: randomUUID(),
+      userId: user.id,
+      action: "sync.people",
+      details: JSON.stringify(result),
+      ip: null,
+      createdAt: new Date(),
+    }).run();
+    return sendSuccess(c, { data: result });
+  } catch (err) {
+    return sendError(c, 502, "SYNC_FAILED", (err as Error).message);
   }
 });
 

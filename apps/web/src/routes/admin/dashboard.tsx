@@ -6,7 +6,7 @@ import { Card } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Modal } from "../../components/ui/modal";
-import { CheckCircle, XCircle, Database, HardDrive, Users, Clock, Download, RefreshCw, Server } from "lucide-react";
+import { CheckCircle, XCircle, Database, HardDrive, Users, Clock, Download, RefreshCw, Server, ArrowDownUp } from "lucide-react";
 
 interface RequestRow {
   id: string;
@@ -239,6 +239,7 @@ function RecentLogPanel() {
 }
 
 function HealthStatusPanel() {
+  const qc = useQueryClient();
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["admin", "status"],
     queryFn: () =>
@@ -250,6 +251,15 @@ function HealthStatusPanel() {
         stats: { users: number; people: number; pendingRequests: number; activeDownloads: number };
       }>("/api/admin/status"),
     refetchInterval: 30_000,
+  });
+
+  const sync = useMutation({
+    mutationFn: () =>
+      api<{ data: { synced: number; totalAssets: number } }>("/api/admin/sync", { method: "POST" }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "status"] });
+      qc.invalidateQueries({ queryKey: ["people"] });
+    },
   });
 
   const status = data;
@@ -271,9 +281,14 @@ function HealthStatusPanel() {
     <Card title="System Health">
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-zinc-500">Uptime: {status ? formatUptime(status.uptime) : "..."}</p>
-        <Button variant="ghost" onClick={() => refetch()}>
-          <RefreshCw className="h-3 w-3 mr-1" /> Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => sync.mutate()} loading={sync.isPending}>
+            <ArrowDownUp className="h-3 w-3 mr-1" /> Sync
+          </Button>
+          <Button variant="ghost" onClick={() => refetch()}>
+            <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

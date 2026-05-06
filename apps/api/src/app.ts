@@ -15,7 +15,6 @@ const MIME: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".ico": "image/x-icon",
-  ".webmanifest": "application/manifest+json",
 };
 
 function serveFile(path: string) {
@@ -49,7 +48,7 @@ app.get("/assets/*", (c) => {
   return c.notFound();
 });
 
-const STATIC_FILES = ["sw.js", "manifest.webmanifest", "favicon.ico", "registerSW.js"];
+const STATIC_FILES = ["favicon.ico"];
 for (const file of STATIC_FILES) {
   const filePath = join(WEB_DIST, file);
   app.get(`/${file}`, (c) => serveFile(filePath));
