@@ -15,6 +15,9 @@ services:
       - .env
     secrets:
       - immich_api_key
+    networks:
+      - default
+      - immich_default
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
@@ -29,3 +32,9 @@ volumes:
 secrets:
   immich_api_key:
     file: ./secrets/immich_api_key.txt
+
+networks:
+  default:
+    driver: bridge
+  immich_default:
+    external: true

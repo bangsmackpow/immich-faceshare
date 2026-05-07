@@ -516,6 +516,10 @@ function UserManagementPanel() {
       setShowCreate(false);
       setForm({ name: "", email: "", password: "", role: "user" });
     },
+    onError: (err) => {
+      console.error("create user failed:", err);
+      alert(err instanceof Error ? err.message : "Failed to create user");
+    },
   });
 
   const updateUser = useMutation({

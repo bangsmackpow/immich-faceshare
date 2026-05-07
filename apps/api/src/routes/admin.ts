@@ -425,6 +425,8 @@ admin.post("/users", async (c) => {
   const password = body?.password as string | undefined;
   const role = (body?.role as "admin" | "user") ?? "user";
 
+  logger.info({ adminUser: adminUser.id, email, name, role }, "admin create user");
+
   if (!email || !name || !password) {
     return sendError(c, 400, "INVALID_REQUEST", "email, name, and password are required");
   }
@@ -433,18 +435,23 @@ admin.post("/users", async (c) => {
   }
 
   try {
-    const res = await fetch(`http://localhost:${process.env.PORT ?? "3001"}/api/auth/sign-up/email`, {
+    const signUpUrl = `http://localhost:${process.env.PORT ?? "3001"}/api/auth/sign-up/email`;
+    logger.info({ url: signUpUrl }, "calling sign-up endpoint");
+    const res = await fetch(signUpUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name, email, password }),
     });
 
+    logger.info({ status: res.status }, "sign-up response");
     if (!res.ok) {
       const errBody = await res.json().catch(() => null);
+      logger.warn({ status: res.status, errBody }, "sign-up failed");
       return sendError(c, 400, "CREATE_FAILED", errBody?.message ?? "Failed to create user");
     }
 
     const created = (await res.json()) as { user: { id: string } };
+    logger.info({ userId: created.user?.id }, "user created, setting role");
     const db = getDb();
     db.update(users)
       .set({ role })
