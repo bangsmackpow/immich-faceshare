@@ -33,6 +33,9 @@ FRONTEND_URL=http://<YOUR_SERVER_IP>:3001
 # Better Auth — generate a random secret
 BETTER_AUTH_SECRET=$(openssl rand -base64 32)
 
+# Better Auth — public URL of your instance
+BETTER_AUTH_URL=http://<YOUR_SERVER_IP>:3001
+
 # URL Signing — generate a different random secret
 SESSION_SECRET=$(openssl rand -base64 32)
 

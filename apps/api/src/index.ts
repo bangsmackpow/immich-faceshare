@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./db/index.js";
 import { users } from "./db/schema.js";
 import { eq } from "drizzle-orm";
+import { hash } from "bcrypt";
 
 const port = parseInt(process.env.PORT ?? "3001", 10);
 const dbPath = process.env.DATABASE_PATH ?? "/data/faceshare.db";
@@ -16,41 +17,29 @@ initDb(dbPath);
 // Create initial admin user if no users exist
 async function ensureAdminUser() {
   const db = getDb();
-  const userCount = db.select({ count: users.id }).from(users).all().length;
+  const existingUsers = db.select().from(users).all();
 
-  if (userCount === 0) {
+  if (existingUsers.length === 0) {
     const adminEmail = process.env.ADMIN_EMAIL ?? "admin@faceshare.local";
     const adminPassword = process.env.ADMIN_PASSWORD ?? randomUUID().slice(0, 16);
     const adminName = process.env.ADMIN_NAME ?? "Administrator";
 
     try {
-      // Use better-auth's internal API to create user with hashed password
-      const res = await fetch(`http://localhost:${port}/api/auth/sign-up/email`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: adminName,
-          email: adminEmail,
-          password: adminPassword,
-        }),
-      });
+      const passwordHash = await hash(adminPassword, 10);
 
-      if (res.ok) {
-        // Set role to admin directly in DB
-        const created = await res.json() as { user: { id: string } };
-        db.update(users)
-          .set({ role: "admin" })
-          .where(eq(users.id, created.user.id))
-          .run();
+      db.insert(users).values({
+        id: crypto.randomUUID(),
+        name: adminName,
+        email: adminEmail,
+        emailVerified: 1,
+        password: passwordHash,
+        role: "admin",
+      }).run();
 
-        logger.info(
-          { email: adminEmail, password: adminPassword },
-          "initial admin user created — save this password!",
-        );
-      } else {
-        const body = await res.text();
-        logger.error({ status: res.status, body }, "failed to create admin user");
-      }
+      logger.info(
+        { email: adminEmail, password: adminPassword },
+        "initial admin user created — save this password!",
+      );
     } catch (err) {
       logger.error(err, "admin user creation failed (will retry on next start)");
     }
