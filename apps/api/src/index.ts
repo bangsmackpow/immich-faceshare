@@ -5,7 +5,7 @@ import { logger } from "./lib/logger.js";
 import { syncAllPeople } from "./lib/sync.js";
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db/index.js";
-import { users } from "./db/schema.js";
+import { users, accounts } from "./db/schema.js";
 import { eq } from "drizzle-orm";
 import { hash } from "bcrypt";
 
@@ -25,15 +25,25 @@ async function ensureAdminUser() {
     const adminName = process.env.ADMIN_NAME ?? "Administrator";
 
     try {
+      const userId = crypto.randomUUID();
       const passwordHash = await hash(adminPassword, 10);
 
+      // Insert user record
       db.insert(users).values({
-        id: crypto.randomUUID(),
+        id: userId,
         name: adminName,
         email: adminEmail,
         emailVerified: true,
-        password: passwordHash,
         role: "admin",
+      }).run();
+
+      // Insert account record with password hash (better-auth credential provider)
+      db.insert(accounts).values({
+        id: crypto.randomUUID(),
+        userId,
+        accountId: adminEmail,
+        providerId: "credential",
+        password: passwordHash,
       }).run();
 
       logger.info(
