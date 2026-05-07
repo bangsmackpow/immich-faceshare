@@ -27,6 +27,7 @@ function parseCookie(header: string | null): Record<string, string> {
 
 export const authMiddleware = createMiddleware(async (c, next) => {
   const cookieHeader = c.req.raw.headers.get("cookie");
+  logger.debug({ cookieHeader }, "auth middleware");
   const cookies = parseCookie(cookieHeader);
   const token =
     c.req.header("authorization")?.replace("Bearer ", "") ??

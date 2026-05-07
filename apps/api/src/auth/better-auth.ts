@@ -2,10 +2,13 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb } from "../db/index.js";
 import * as schema from "../db/schema.js";
+import { logger } from "../lib/logger.js";
 
 let _auth: ReturnType<typeof createAuthInstance> | null = null;
 
 function createAuthInstance() {
+  const baseURL = process.env.BETTER_AUTH_URL ?? process.env.FRONTEND_URL;
+  logger.info({ baseURL, nodeEnv: process.env.NODE_ENV }, "better-auth config");
   return betterAuth({
     database: drizzleAdapter(getDb(), {
       provider: "sqlite",
@@ -45,11 +48,6 @@ function createAuthInstance() {
       useSecureCookies: process.env.NODE_ENV === "production",
       crossSubDomainCookies: {
         enabled: false,
-      },
-      defaultCookieAttributes: {
-        sameSite: "lax",
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
       },
     },
     trustedOrigins: [
