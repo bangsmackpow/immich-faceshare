@@ -74,6 +74,37 @@ export function migrate(sqlite: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
   `);
 
+  // ── Accounts table (better-auth) ──
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL,
+      provider_id TEXT NOT NULL,
+      access_token TEXT,
+      refresh_token TEXT,
+      id_token TEXT,
+      access_token_expires_at INTEGER,
+      refresh_token_expires_at INTEGER,
+      scope TEXT,
+      password TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `);
+
+  // ── Verifications table (better-auth) ──
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS verifications (
+      id TEXT PRIMARY KEY,
+      identifier TEXT NOT NULL,
+      value TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER DEFAULT (unixepoch()),
+      updated_at INTEGER DEFAULT (unixepoch())
+    );
+  `);
+
   // ── All other tables ──
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS people (
