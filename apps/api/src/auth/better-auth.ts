@@ -46,6 +46,11 @@ function createAuthInstance() {
       crossSubDomainCookies: {
         enabled: false,
       },
+      defaultCookieAttributes: {
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
     },
     trustedOrigins: [
       process.env.FRONTEND_URL ?? "http://localhost:3001",
