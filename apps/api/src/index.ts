@@ -31,7 +31,7 @@ async function ensureAdminUser() {
         id: crypto.randomUUID(),
         name: adminName,
         email: adminEmail,
-        emailVerified: 1,
+        emailVerified: true,
         password: passwordHash,
         role: "admin",
       }).run();
