@@ -10,6 +10,7 @@ import {
   auditLog,
   people,
   users,
+  accounts,
   downloadJobs,
 } from "../db/schema.js";
 import { authMiddleware, adminGuard, type AuthUser } from "../middleware/auth.js";
@@ -19,7 +20,7 @@ import { sendApprovalNotification } from "../lib/email.js";
 import { getImmichClient } from "../lib/immich.js";
 import { jobQueue } from "../lib/download-queue.js";
 import { syncAllPeople } from "../lib/sync.js";
-import { hash } from "bcrypt";
+import { hashPassword } from "@better-auth/utils/password";
 
 const admin = new Hono();
 admin.use("*", authMiddleware, adminGuard);
@@ -556,10 +557,10 @@ admin.post("/users/:id/reset-password", async (c) => {
   }
 
   try {
-    const hashed = await hash(newPassword, 10);
-    db.update(users)
+    const hashed = await hashPassword(newPassword);
+    db.update(accounts)
       .set({ password: hashed, updatedAt: new Date() })
-      .where(eq(users.id, id))
+      .where(eq(accounts.userId, id))
       .run();
 
     db.insert(auditLog)

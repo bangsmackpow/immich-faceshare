@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./db/index.js";
 import { users, accounts } from "./db/schema.js";
 import { eq } from "drizzle-orm";
-import { hash } from "bcrypt";
+import { hashPassword } from "@better-auth/utils/password";
 
 const port = parseInt(process.env.PORT ?? "3001", 10);
 const dbPath = process.env.DATABASE_PATH ?? "/data/faceshare.db";
@@ -26,7 +26,8 @@ async function ensureAdminUser() {
 
     try {
       const userId = crypto.randomUUID();
-      const passwordHash = await hash(adminPassword, 10);
+      // Use better-auth's own password hasher so verifyPassword recognizes it
+      const passwordHash = await hashPassword(adminPassword);
 
       // Insert user record
       db.insert(users).values({
