@@ -44,6 +44,10 @@ function createAuthInstance() {
         enabled: false,
       },
     },
+    trustedOrigins: [
+      process.env.FRONTEND_URL ?? "http://localhost:3001",
+      "http://localhost:5173", // Vite dev
+    ].filter(Boolean),
   });
 }
 
