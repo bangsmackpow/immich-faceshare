@@ -15,27 +15,10 @@ declare module "hono" {
 
 export type { AuthUser };
 
-function parseCookie(header: string | null): Record<string, string> {
-  if (!header) return {};
-  const cookies: Record<string, string> = {};
-  for (const part of header.split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key) cookies[key.trim()] = decodeURIComponent(rest.join("="));
-  }
-  return cookies;
-}
-
 export const authMiddleware = createMiddleware(async (c, next) => {
   const cookieHeader = c.req.raw.headers.get("cookie");
-  logger.debug({ cookieHeader }, "auth middleware");
-  const cookies = parseCookie(cookieHeader);
-  const token =
-    c.req.header("authorization")?.replace("Bearer ", "") ??
-    cookies["faceshare.session_token"];
-
-  if (!token) {
-    return sendError(c, 401, "UNAUTHORIZED", "No session token provided");
-  }
+  const authHeader = c.req.raw.headers.get("authorization");
+  logger.info({ cookieHeader, authHeader, method: c.req.method, path: c.req.path }, "auth middleware");
 
   try {
     const session = await getAuth().api.getSession({
@@ -43,6 +26,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
     });
 
     if (!session?.user) {
+      logger.warn({ method: c.req.method, path: c.req.path }, "no session found");
       return sendError(c, 401, "UNAUTHORIZED", "Invalid or expired session");
     }
 

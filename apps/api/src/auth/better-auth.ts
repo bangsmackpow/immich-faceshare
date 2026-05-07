@@ -46,6 +46,10 @@ function createAuthInstance() {
     advanced: {
       cookiePrefix: "faceshare",
       useSecureCookies: process.env.NODE_ENV === "production",
+      defaultCookieAttributes: {
+        sameSite: "lax",
+        path: "/",
+      },
       crossSubDomainCookies: {
         enabled: false,
       },
