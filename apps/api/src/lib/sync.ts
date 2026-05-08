@@ -5,8 +5,9 @@ import { getImmichClient } from "./immich.js";
 import { logger } from "./logger.js";
 import { eq } from "drizzle-orm";
 
-export async function syncPerson(personId: string): Promise<{
+export async function syncPerson(personId: string, options?: { backfillExif?: boolean }): Promise<{
   newAssets: number;
+  updatedExif: number;
 }> {
   const db = getDb();
   const immich = getImmichClient();
@@ -22,12 +23,14 @@ export async function syncPerson(personId: string): Promise<{
     throw new Error(`Person not found in cache: ${personId}`);
   }
 
-  const afterDate = person.syncDate
-    ? new Date(person.syncDate).toISOString()
-    : undefined;
+  const afterDate = options?.backfillExif
+    ? undefined
+    : person.syncDate
+      ? new Date(person.syncDate).toISOString()
+      : undefined;
 
   logger.info(
-    { personId: person.immichPersonId, afterDate },
+    { personId: person.immichPersonId, afterDate, backfillExif: options?.backfillExif },
     "syncing person",
   );
 
@@ -37,11 +40,12 @@ export async function syncPerson(personId: string): Promise<{
   );
 
   let newAssets = 0;
+  let updatedExif = 0;
   const thumbBaseUrl = (process.env.IMMICH_URL ?? "").replace(/\/+$/, "");
 
   for (const asset of searchRes.assets.items) {
     const existing = db
-      .select({ id: assetCache.id })
+      .select({ id: assetCache.id, exif: assetCache.exif })
       .from(assetCache)
       .where(eq(assetCache.immichAssetId, asset.id))
       .limit(1)
@@ -59,6 +63,12 @@ export async function syncPerson(personId: string): Promise<{
         })
         .run();
       newAssets++;
+    } else if (options?.backfillExif && !existing.exif && asset.exifInfo) {
+      db.update(assetCache)
+        .set({ exif: JSON.stringify(asset.exifInfo) })
+        .where(eq(assetCache.id, existing.id))
+        .run();
+      updatedExif++;
     }
   }
 
@@ -69,11 +79,11 @@ export async function syncPerson(personId: string): Promise<{
     .run();
 
   logger.info(
-    { personId: person.immichPersonId, newAssets, total: searchRes.assets.total },
+    { personId: person.immichPersonId, newAssets, updatedExif, total: searchRes.assets.total },
     "sync complete",
   );
 
-  return { newAssets };
+  return { newAssets, updatedExif };
 }
 
 export async function syncAllPeople(): Promise<{

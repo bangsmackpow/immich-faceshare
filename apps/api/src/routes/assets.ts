@@ -6,6 +6,7 @@ import { authMiddleware } from "../middleware/auth.js";
 import { sendError, sendSuccess } from "../lib/response.js";
 import { createSignedAssetUrl, verifyToken } from "../lib/signing.js";
 import { logger } from "../lib/logger.js";
+import { syncPerson } from "../lib/sync.js";
 
 const assets = new Hono();
 assets.use("*", authMiddleware);
@@ -40,6 +41,33 @@ assets.get("/:personId", async (c) => {
   }));
 
   return sendSuccess(c, { data: withUrls, total: withUrls.length });
+});
+
+assets.post("/:personId/resync", async (c) => {
+  const user = c.get("user");
+  const personId = c.req.param("personId");
+  const db = getDb();
+
+  const approval = db
+    .select()
+    .from(approvals)
+    .where(
+      and(eq(approvals.userId, user.id), eq(approvals.personId, personId)),
+    )
+    .limit(1)
+    .all()[0];
+
+  if (!approval || approval.revokedAt) {
+    return sendError(c, 403, "FORBIDDEN", "No access to this person's assets");
+  }
+
+  try {
+    const result = await syncPerson(personId, { backfillExif: true });
+    return sendSuccess(c, result);
+  } catch (err) {
+    logger.error({ personId, err: (err as Error).message }, "resync failed");
+    return sendError(c, 500, "RESYNC_FAILED", "Failed to resync assets");
+  }
 });
 
 assets.get("/proxy/:assetId", async (c) => {

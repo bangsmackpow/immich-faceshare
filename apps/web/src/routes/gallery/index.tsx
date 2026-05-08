@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import Masonry from "react-masonry-css";
 import { api } from "../../lib/api";
@@ -7,7 +7,7 @@ import { useToast } from "../../components/shared/toast";
 import { PageTransition, CardHover, FadeIn } from "../../components/animations";
 import { GallerySkeleton } from "../../components/shared/skeleton";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Download, X, ChevronLeft, ChevronRight, Check, Filter, Calendar, Camera, MapPin } from "lucide-react";
+import { ArrowLeft, Download, X, ChevronLeft, ChevronRight, Check, Filter, Calendar, Camera, MapPin, RefreshCw } from "lucide-react";
 
 interface Asset {
   id: string;
@@ -43,6 +43,7 @@ export default function Gallery() {
   const { personId } = useParams<{ personId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
@@ -106,6 +107,21 @@ export default function Gallery() {
         }),
       }),
     onSuccess: () => toast("Download queued — you'll be notified when ready", "success"),
+    onError: (err: Error) => toast(err.message, "error"),
+  });
+
+  const resyncMutation = useMutation({
+    mutationFn: () =>
+      api<{ data: { newAssets: number; updatedExif: number } }>(`/api/assets/${personId}/resync`, {
+        method: "POST",
+      }),
+    onSuccess: (result) => {
+      const parts = [];
+      if (result.data.newAssets > 0) parts.push(`${result.data.newAssets} new`);
+      if (result.data.updatedExif > 0) parts.push(`${result.data.updatedExif} updated`);
+      toast(parts.length > 0 ? `Resync complete: ${parts.join(", ")}` : "No changes found", "success");
+      queryClient.invalidateQueries({ queryKey: ["assets", personId] });
+    },
     onError: (err: Error) => toast(err.message, "error"),
   });
 
@@ -176,6 +192,13 @@ export default function Gallery() {
               </button>
 
               <div className="flex items-center gap-2" style={{ contentVisibility: "auto" }}>
+                <Button
+                  variant="ghost"
+                  onClick={() => resyncMutation.mutate()}
+                  loading={resyncMutation.isPending}
+                >
+                  <RefreshCw size={14} />
+                </Button>
                 <Button
                   variant={hasActiveFilters ? "primary" : "ghost"}
                   onClick={() => setShowFilters(!showFilters)}
