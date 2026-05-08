@@ -2,7 +2,6 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  googleId: string;
   avatar: string | null;
   role: "admin" | "user";
   createdAt: string;

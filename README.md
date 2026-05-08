@@ -67,7 +67,7 @@ All configuration is via environment variables (see `.env.example`):
 | `IMMICH_API_KEY` | Immich API key (required) | — |
 | `IMMICH_URL` | Immich server URL | `http://immich:2283` |
 | `BETTER_AUTH_SECRET` | Secret for session token signing (required) | — |
-| `SESSION_SECRET` | Session encryption secret (legacy, kept for compatibility) | `change-me-to-a-random-secret` |
+| `SIGNING_SECRET` | Secret for signing download/asset URLs | `change-me-to-a-random-secret` |
 | `DATABASE_PATH` | SQLite database path | `/data/faceshare.db` |
 | `BACKUP_DIR` | Database backup directory | `/data/backups` |
 | `LOG_DIR` | Log output directory | `/data/logs` |

@@ -37,7 +37,7 @@ BETTER_AUTH_SECRET=$(openssl rand -base64 32)
 BETTER_AUTH_URL=http://<YOUR_SERVER_IP>:3001
 
 # URL Signing — generate a different random secret
-SESSION_SECRET=$(openssl rand -base64 32)
+SIGNING_SECRET=$(openssl rand -base64 32)
 
 # Admin account — created on first boot
 ADMIN_EMAIL=your-email@example.com
@@ -59,7 +59,7 @@ Replace the placeholders:
 - `ADMIN_EMAIL` — the email for the admin account
 - `ADMIN_PASSWORD` — pick a strong password (min 8 characters)
 
-> **Important:** `BETTER_AUTH_SECRET` and `SESSION_SECRET` must be different random strings. If you don't have `openssl`, generate them manually (at least 32 random characters each).
+> **Important:** `BETTER_AUTH_SECRET` and `SIGNING_SECRET` must be different random strings. If you don't have `openssl`, generate them manually (at least 32 random characters each).
 
 ## Step 4: Create the API Key Secret File
 

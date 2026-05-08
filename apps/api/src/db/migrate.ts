@@ -52,6 +52,7 @@ export function migrate(sqlite: Database.Database) {
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
+    CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id);
   `);
 
   // ── Verifications table (better-auth) ──

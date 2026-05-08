@@ -1,6 +1,11 @@
 import { useAuth } from "../../lib/auth";
-import { Navigate } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  isActive
+    ? "text-zinc-100 font-medium"
+    : "text-zinc-400 transition-colors hover:text-zinc-100";
 
 export function AdminGuard({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,30 +32,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <h1 className="text-lg font-bold text-zinc-100">FaceShare Admin</h1>
           <nav className="flex gap-4 text-sm">
-            <a
-              href="/admin"
-              className="text-zinc-400 transition-colors hover:text-zinc-100"
-            >
+            <NavLink to="/admin" className={navLinkClass}>
               Dashboard
-            </a>
-            <a
-              href="/admin/playground"
-              className="text-zinc-400 transition-colors hover:text-zinc-100"
-            >
+            </NavLink>
+            <NavLink to="/admin/playground" className={navLinkClass}>
               Playground
-            </a>
-            <a
-              href="/admin/logs"
-              className="text-zinc-400 transition-colors hover:text-zinc-100"
-            >
+            </NavLink>
+            <NavLink to="/admin/logs" className={navLinkClass}>
               Logs
-            </a>
-            <a
-              href="/"
+            </NavLink>
+            <NavLink
+              to="/"
               className="text-zinc-600 transition-colors hover:text-zinc-400"
             >
               Back to app
-            </a>
+            </NavLink>
           </nav>
         </div>
       </header>

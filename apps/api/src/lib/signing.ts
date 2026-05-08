@@ -3,8 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const ALGORITHM = "sha256";
 
 function getSecret(): string {
-  const s = process.env.SESSION_SECRET;
-  if (!s) throw new Error("SESSION_SECRET required for signing");
+  const s = process.env.SIGNING_SECRET ?? process.env.SESSION_SECRET;
+  if (!s) throw new Error("SIGNING_SECRET required for URL signing");
   return s;
 }
 
