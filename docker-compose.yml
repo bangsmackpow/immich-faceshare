@@ -1,6 +1,7 @@
 services:
   faceshare:
     image: ghcr.io/bangsmackpow/immich-faceshare:latest
+    pull_policy: always
     ports:
       - "3001:3001"
     volumes:
