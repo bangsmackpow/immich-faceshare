@@ -57,9 +57,10 @@ function createAuthInstance() {
     trustedOrigins: [
       process.env.FRONTEND_URL,
       process.env.BETTER_AUTH_URL,
-      "http://localhost:5173", // Vite dev
-    ].filter(Boolean) as string[],
-    baseURL: process.env.BETTER_AUTH_URL ?? process.env.FRONTEND_URL,
+      "http://localhost:5173",
+      "http://localhost:3001",
+    ].filter((v): v is string => typeof v === "string"),
+    baseURL: process.env.BETTER_AUTH_URL ?? process.env.FRONTEND_URL ?? "http://localhost:3001",
   });
 }
 

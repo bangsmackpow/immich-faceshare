@@ -13,6 +13,11 @@ export async function api<T>(
     credentials: "include",
   });
 
+  if (res.status === 401) {
+    window.location.href = "/login";
+    throw new ApiError(401, "UNAUTHORIZED", "Session expired");
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: res.statusText }));
     throw new ApiError(res.status, body.code ?? "ERROR", body.message ?? res.statusText);

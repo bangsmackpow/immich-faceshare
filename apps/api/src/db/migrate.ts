@@ -5,9 +5,8 @@ export function migrate(sqlite: Database.Database) {
   logger.info("running schema migrations");
 
   // ── Users table (better-auth compatible) ──
-  // Create new-style users table if it doesn't exist
   sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS users_new (
+    CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
@@ -19,44 +18,6 @@ export function migrate(sqlite: Database.Database) {
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `);
-
-  // Migrate existing data from old users table if it exists
-  const oldUsersExists = sqlite
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='users_old'",
-    )
-    .get();
-  if (!oldUsersExists) {
-    const usersTableExists = sqlite
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='users'",
-      )
-      .get();
-    if (!usersTableExists) {
-      // Brand new database — rename users_new to users
-      sqlite.exec("ALTER TABLE users_new RENAME TO users");
-    } else {
-      const hasGoogleId = sqlite
-        .prepare(
-          "SELECT COUNT(*) as cnt FROM pragma_table_info('users') WHERE name='google_id'",
-        )
-        .get() as { cnt: number };
-      if (hasGoogleId.cnt > 0) {
-        // Old schema exists, migrate data
-        sqlite.exec(`
-          INSERT OR IGNORE INTO users_new (id, name, email, email_verified, image, role, created_at, updated_at)
-          SELECT id, name, email, 0, avatar, role, created_at, created_at FROM users;
-          DROP TABLE users;
-          ALTER TABLE users_new RENAME TO users;
-        `);
-      } else {
-        // No google_id column, just drop the new temp table
-        sqlite.exec("DROP TABLE users_new");
-      }
-    }
-  } else {
-    sqlite.exec("DROP TABLE users_new");
-  }
 
   // ── Sessions table (better-auth) ──
   sqlite.exec(`

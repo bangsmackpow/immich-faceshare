@@ -36,5 +36,8 @@ secrets:
 networks:
   default:
     driver: bridge
+  # Must match the network name of your Immich deployment.
+  # Run `docker network ls` to find it (usually <project>_default).
+  # If your Immich compose uses a different project name, change this.
   immich_default:
     external: true
