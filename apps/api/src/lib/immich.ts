@@ -160,19 +160,57 @@ class ImmichClient {
     personId: string,
     afterDate?: string,
   ): Promise<ImmichSearchResponse> {
-    const params = new URLSearchParams({
-      personIds: personId,
+    const body: Record<string, unknown> = {
+      personIds: [personId],
       type: "IMAGE",
-      page: "1",
-      size: "1000",
+      page: 1,
+      size: 1000,
       order: "desc",
-    });
+    };
     if (afterDate) {
-      params.set("updatedAfter", afterDate);
+      body.updatedAfter = afterDate;
     }
-    return this.fetch<ImmichSearchResponse>(
-      `/api/search/metadata?${params.toString()}`,
-    );
+
+    const url = `${this.baseUrl}/api/search/metadata`;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await this.fetchWithTimeout(url, {
+          method: "POST",
+          headers: {
+            "x-api-key": this.apiKey,
+            "content-type": "application/json",
+            accept: "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+
+        this.requestCount++;
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "unknown");
+          throw new Error(
+            `Immich API ${res.status}: /api/search/metadata — ${text.slice(0, 200)}`,
+          );
+        }
+
+        return (await res.json()) as ImmichSearchResponse;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+
+        if (attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt);
+          logger.warn(
+            { err: lastError.message, attempt: attempt + 1, delay },
+            "immich search retry",
+          );
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+    }
+
+    throw lastError ?? new Error("Immich search request failed");
   }
 
   async getAssetThumbnail(assetId: string): Promise<ArrayBuffer> {
