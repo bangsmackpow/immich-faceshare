@@ -441,15 +441,25 @@ function BackupPanel() {
                   {formatBytes(b.size)} &middot; {new Date(b.createdAt).toLocaleString()}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setRestoreFile(b.name);
-                  setShowRestoreModal(true);
-                }}
-              >
-                Restore
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    window.open(`/api/admin/backups/${encodeURIComponent(b.name)}`, "_blank");
+                  }}
+                >
+                  <Download className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setRestoreFile(b.name);
+                    setShowRestoreModal(true);
+                  }}
+                >
+                  Restore
+                </Button>
+              </div>
             </div>
           ))}
         </div>

@@ -400,6 +400,32 @@ admin.get("/backups", (c) => {
   }
 });
 
+// ── Download Backup ──
+admin.get("/backups/:filename", (c) => {
+  const backupDir = process.env.BACKUP_DIR ?? "/data/backups";
+  const filename = basename(c.req.param("filename"));
+
+  if (!filename.endsWith(".db")) {
+    return sendError(c, 400, "INVALID_BACKUP_FILE", "Invalid backup file");
+  }
+
+  const filePath = join(backupDir, filename);
+
+  if (!existsSync(filePath)) {
+    return sendError(c, 404, "BACKUP_NOT_FOUND", "Backup file not found");
+  }
+
+  try {
+    const fileBuffer = readFileSync(filePath);
+    c.header("Content-Type", "application/octet-stream");
+    c.header("Content-Disposition", `attachment; filename="${filename}"`);
+    c.header("Content-Length", String(fileBuffer.length));
+    return c.body(fileBuffer);
+  } catch (err) {
+    return sendError(c, 500, "BACKUP_DOWNLOAD_FAILED", (err as Error).message);
+  }
+});
+
 // ── User Management ──
 admin.get("/users", (c) => {
   const db = getDb();
