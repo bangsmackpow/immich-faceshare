@@ -21,9 +21,14 @@ export const authMiddleware = createMiddleware(async (c, next) => {
   logger.info({ cookieHeader, authHeader, method: c.req.method, path: c.req.path }, "auth middleware");
 
   try {
-    const session = await getAuth().api.getSession({
-      headers: c.req.raw.headers,
-    });
+    // Better-auth requires an origin header, but browsers don't send it for same-origin requests
+    const headers = new Headers(c.req.raw.headers);
+    if (!headers.has("origin")) {
+      const origin = process.env.FRONTEND_URL ?? `http://localhost:${process.env.PORT ?? "3001"}`;
+      headers.set("origin", origin);
+    }
+
+    const session = await getAuth().api.getSession({ headers });
 
     if (!session?.user) {
       logger.warn({ method: c.req.method, path: c.req.path }, "no session found");
