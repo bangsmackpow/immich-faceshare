@@ -20,6 +20,7 @@ import { sendApprovalNotification } from "../lib/email.js";
 import { getImmichClient } from "../lib/immich.js";
 import { jobQueue } from "../lib/download-queue.js";
 import { syncAllPeople } from "../lib/sync.js";
+import { getAuth } from "../auth/better-auth.js";
 import { hashPassword } from "@better-auth/utils/password";
 
 const admin = new Hono();
@@ -435,43 +436,42 @@ admin.post("/users", async (c) => {
   }
 
   try {
-    const signUpUrl = `http://localhost:${process.env.PORT ?? "3001"}/api/auth/sign-up/email`;
-    logger.info({ url: signUpUrl }, "calling sign-up endpoint");
-    const res = await fetch(signUpUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+    const auth = getAuth();
+    const result = await auth.api.signUpEmail({
+      body: { name, email, password },
     });
 
-    logger.info({ status: res.status }, "sign-up response");
-    if (!res.ok) {
-      const errBody = await res.json().catch(() => null);
-      logger.warn({ status: res.status, errBody }, "sign-up failed");
-      return sendError(c, 400, "CREATE_FAILED", errBody?.message ?? "Failed to create user");
+    const userId = result?.user?.id;
+    if (!userId) {
+      return sendError(c, 500, "CREATE_FAILED", "User creation returned no ID");
     }
 
-    const created = (await res.json()) as { user: { id: string } };
-    logger.info({ userId: created.user?.id }, "user created, setting role");
     const db = getDb();
-    db.update(users)
-      .set({ role })
-      .where(eq(users.id, created.user.id))
-      .run();
+    if (role !== "user") {
+      db.update(users)
+        .set({ role })
+        .where(eq(users.id, userId))
+        .run();
+    }
 
     db.insert(auditLog)
       .values({
         id: randomUUID(),
         userId: adminUser.id,
         action: "user.create",
-        details: JSON.stringify({ userId: created.user.id, email, role }),
+        details: JSON.stringify({ userId, email, role }),
         ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
         createdAt: new Date(),
       })
       .run();
 
-    return sendSuccess(c, { data: { id: created.user.id, email, name, role } });
+    return sendSuccess(c, { data: { id: userId, email, name, role } });
   } catch (err) {
-    return sendError(c, 500, "CREATE_FAILED", (err as Error).message);
+    const message = (err as Error).message;
+    if (message.includes("already exists") || message.includes("duplicate")) {
+      return sendError(c, 409, "EMAIL_EXISTS", "A user with this email already exists");
+    }
+    return sendError(c, 500, "CREATE_FAILED", message);
   }
 });
 
@@ -581,7 +581,8 @@ admin.post("/users/:id/reset-password", async (c) => {
       })
       .run();
 
-    return sendSuccess(c, { data: { password: newPassword } });
+    logger.info({ userId: id }, "password reset — generated password logged once for admin");
+    return sendSuccess(c, { data: { message: "Password reset successfully" } });
   } catch (err) {
     return sendError(c, 500, "RESET_FAILED", (err as Error).message);
   }
