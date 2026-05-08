@@ -35,8 +35,20 @@
 - [x] Update all documentation (README, setup, architecture, memory)
 - [x] Push to main
 
+## Phase 6: Immich v2.x API Compatibility (Complete)
+- [x] Fix `searchAssetsByPerson` — Immich v2.x requires POST with JSON body
+- [x] Add retry logic with exponential backoff
+- [x] Test photo loading for approved persons end-to-end
+- [x] Push to main
+
+## Phase 7: Downloads UI (Complete)
+- [x] Add `GET /api/downloads` endpoint listing user's download jobs
+- [x] Create `/downloads` page with job status polling (3s auto-refresh)
+- [x] Add download icon to header navigation
+- [x] Signed ZIP download with expiration
+- [x] Push to main
+
 ## Pending
-- [ ] Test photo download functionality end-to-end
 - [ ] Verify HTTPS cookie flags (`__Secure-`) in production
 - [ ] Add rate limiting
 - [ ] Add CSRF protection

@@ -150,7 +150,14 @@ Sign in with:
 
 After logging in, you should see the people page with thumbnails from your Immich library.
 
-## Step 8: Create User Accounts
+## Step 8: Browse Photos & Download
+
+- Click on any person to view their photos in the gallery
+- Click **"All"** to download all photos as a ZIP, or select individual photos
+- Visit **/downloads** to see your download queue and grab completed ZIPs
+- You'll receive an email when your download is ready (if SMTP is configured)
+
+## Step 9: Create User Accounts
 
 1. Navigate to `/admin` in your browser
 2. Go to the **User Management** panel
@@ -161,7 +168,7 @@ After logging in, you should see the people page with thumbnails from your Immic
    - **Password** — a temporary password (they can request a reset)
 5. Share the credentials with the user
 
-## Step 9: (Optional) Set Up Reverse Proxy
+## Step 10: (Optional) Set Up Reverse Proxy
 
 If you want HTTPS and a proper domain, put FaceShare behind a reverse proxy:
 

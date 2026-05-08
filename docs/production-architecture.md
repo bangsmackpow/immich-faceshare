@@ -7,6 +7,8 @@
 - Hono.js API + React SPA frontend
 - better-auth sessions with email/password authentication
 - File-based logging with pino
+- Immich v2.x compatible (POST `/api/search/metadata` with JSON body)
+- Downloads page (`/downloads`) with job polling and signed ZIP delivery
 
 ## Scaling Recommendations
 
@@ -64,7 +66,7 @@
 
 ### 5. Download Queue
 
-**Current:** In-memory array (`jobQueue.length`)
+**Current:** In-memory array with SQLite job tracking. `/downloads` page polls every 3s. Signed ZIP URLs expire after 24h. Email notifications on completion.
 **For production:**
 - Move to Redis-backed queue (BullMQ or Upstash QStash)
 - Add retry logic with exponential backoff

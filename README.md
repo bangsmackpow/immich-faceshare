@@ -24,7 +24,8 @@ The service runs on `http://localhost:3001` by default.
 - **Face Discovery** — Automatically pulls people from your Immich library
 - **Photo Sharing** — Users request access to specific people, admins approve/deny
 - **Email/Password Auth** — Admin creates accounts, no OAuth or third-party providers
-- **Email Notifications** — Users notified when access is approved
+- **Email Notifications** — Users notified when access is approved or downloads are ready
+- **Downloads Page** — `/downloads` shows queued, processing, and completed ZIP downloads with auto-refresh
 - **Bulk Downloads** — Queue-based ZIP download for approved photos
 - **Admin Dashboard** — Manage users, requests, approvals, audit logs, DB backups, and system health
 - **Docker-Ready** — Single compose file, pre-built images on GHCR
@@ -57,6 +58,15 @@ Visit `/admin` to access the admin panel (requires admin role):
 | **Pending Requests** | Approve or deny user access requests |
 | **Active Approvals** | View and revoke existing access grants |
 | **Audit Log** | View recent system activity and admin actions |
+
+## Downloads
+
+Users can download approved photos as ZIP archives from two places:
+
+1. **Gallery page** (`/gallery/:personId`) — Click "All" for all photos, or select individual photos and click "Download (N)"
+2. **Downloads page** (`/downloads`) — View all your download jobs with status (pending → processing → completed), file size, and a download button for completed ZIPs
+
+Completed downloads auto-refresh every 3 seconds. ZIP files expire after 24 hours.
 
 ## Configuration
 
