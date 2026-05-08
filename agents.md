@@ -25,6 +25,10 @@ FaceShare is a face discovery and sharing app for Immich. Single Docker containe
 - `/downloads` — Download job status, polling, signed ZIP download
 - `/admin` — Admin dashboard (users, requests, backups, health, logs)
 
+## Assets
+- Favicon/logo in `apps/web/public/` (SVG + PNG + ICO + webmanifest)
+- Source logo: `logo.svg` (minimalist face with share arcs, B&W)
+
 ## Common Tasks
 - **Add user**: Admin dashboard → User Management → Create User
 - **Backup**: Admin dashboard → Database Backups, or `docker compose exec faceshare cp /data/faceshare.db /data/backups/`

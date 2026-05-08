@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- FaceShare Logo: Minimalist face with share connection -->
+  <defs>
+    <style>
+      .face { fill: none; stroke: #000; stroke-width: 16; stroke-linecap: round; stroke-linejoin: round; }
+      .eye { fill: #000; }
+      .smile { fill: none; stroke: #000; stroke-width: 16; stroke-linecap: round; }
+      .share { fill: none; stroke: #000; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Face outline -->
+  <circle class="face" cx="256" cy="240" r="160"/>
+
+  <!-- Eyes -->
+  <circle class="eye" cx="200" cy="210" r="16"/>
+  <circle class="eye" cx="312" cy="210" r="16"/>
+
+  <!-- Smile -->
+  <path class="smile" d="M 190 290 Q 256 340 322 290"/>
+
+  <!-- Share/connection element: two arcs connecting above the face -->
+  <path class="share" d="M 160 120 Q 256 40 352 120"/>
+  <path class="share" d="M 140 140 Q 256 60 372 140"/>
+
+  <!-- Connection dots -->
+  <circle class="eye" cx="160" cy="120" r="8"/>
+  <circle class="eye" cx="352" cy="120" r="8"/>
+</svg>
