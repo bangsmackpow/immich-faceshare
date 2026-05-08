@@ -112,13 +112,13 @@ export default function Gallery() {
 
   const resyncMutation = useMutation({
     mutationFn: () =>
-      api<{ data: { newAssets: number; updatedExif: number } }>(`/api/assets/${personId}/resync`, {
+      api<{ newAssets: number; updatedExif: number }>(`/api/assets/${personId}/resync`, {
         method: "POST",
       }),
     onSuccess: (result) => {
       const parts = [];
-      if (result.data.newAssets > 0) parts.push(`${result.data.newAssets} new`);
-      if (result.data.updatedExif > 0) parts.push(`${result.data.updatedExif} updated`);
+      if (result.newAssets > 0) parts.push(`${result.newAssets} new`);
+      if (result.updatedExif > 0) parts.push(`${result.updatedExif} updated`);
       toast(parts.length > 0 ? `Resync complete: ${parts.join(", ")}` : "No changes found", "success");
       queryClient.invalidateQueries({ queryKey: ["assets", personId] });
     },
