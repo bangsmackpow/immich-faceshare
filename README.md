@@ -66,17 +66,21 @@ All configuration is via environment variables (see `.env.example`):
 |---|---|---|
 | `IMMICH_API_KEY` | Immich API key (required) | — |
 | `IMMICH_URL` | Immich server URL | `http://immich:2283` |
+| `FRONTEND_URL` | Public URL for cookie domain and trusted origins | `http://localhost:3001` |
 | `BETTER_AUTH_SECRET` | Secret for session token signing (required) | — |
+| `BETTER_AUTH_URL` | Public URL of your instance | `http://localhost:3001` |
 | `SIGNING_SECRET` | Secret for signing download/asset URLs | `change-me-to-a-random-secret` |
 | `DATABASE_PATH` | SQLite database path | `/data/faceshare.db` |
 | `BACKUP_DIR` | Database backup directory | `/data/backups` |
 | `LOG_DIR` | Log output directory | `/data/logs` |
-| `LOG_TO_FILE` | Write logs to file (`true`/`false`) | `false` (stdout only) |
+| `LOG_LEVEL` | Log level | `info` |
+| `LOG_TO_FILE` | Write logs to file (`true`/`false`) | `true` |
 | `DOWNLOADS_DIR` | ZIP download working directory | `/data/downloads` |
 | `PORT` | HTTP listen port | `3001` |
-| `NODE_ENV` | Environment mode | `development` |
+| `NODE_ENV` | Environment mode | `production` |
 | `ADMIN_EMAIL` | Admin account email (created on first boot) | — |
 | `ADMIN_PASSWORD` | Admin account password (created on first boot) | — |
+| `ADMIN_NAME` | Admin display name | `Administrator` |
 
 ### Email Notifications (Optional)
 
@@ -101,7 +105,7 @@ Each commit to `main` publishes a new image tagged with the commit SHA and `late
 ### Building locally
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+docker compose up -d --build
 ```
 
 ## Development
@@ -151,7 +155,6 @@ docker compose restart faceshare
 
 ### Health Checks
 
-The database includes built-in health monitoring:
 - `GET /api/admin/status` — Full system health report
 - `GET /health` — Basic liveness check (used by Docker healthcheck)
 - WAL integrity verified via `PRAGMA quick_check`

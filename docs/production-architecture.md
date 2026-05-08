@@ -3,7 +3,7 @@
 ## Current State
 - Single-node Docker Compose deployment
 - SQLite (better-sqlite3) for application data
-- Direct Immich API proxy for photo access
+- Thumbnail proxy via Immich API (`/api/people/:id/thumbnail`)
 - Hono.js API + React SPA frontend
 - better-auth sessions with email/password authentication
 - File-based logging with pino
@@ -54,7 +54,7 @@
 
 ### 4. Asset Delivery
 
-**Current:** Photos served through API proxy (inefficient for large files)
+**Current:** Photos served through API proxy with signed URLs. Thumbnails proxied via `/api/people/:id/thumbnail` from Immich API.
 **Recommended:**
 - Generate presigned URLs from Immich for direct asset access
 - Add CDN (CloudFlare, CloudFront) for cached photo delivery
@@ -100,7 +100,7 @@
 - Audit log integrity (hash chain or append-only table)
 - Backup encryption (AES-256-GCM for DB backups)
 - Account lockout after failed login attempts (brute force protection)
-- bcrypt cost factor tuning (balance security vs login latency)
+- Password hashing via `@better-auth/utils/password`
 
 ### 8. Deployment Architecture
 

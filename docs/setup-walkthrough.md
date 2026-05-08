@@ -76,6 +76,7 @@ cat > docker-compose.yml << 'EOF'
 services:
   faceshare:
     image: ghcr.io/bangsmackpow/immich-faceshare:latest
+    pull_policy: always
     ports:
       - "3001:3001"
     volumes:
@@ -90,6 +91,9 @@ services:
       - .env
     secrets:
       - immich_api_key
+    networks:
+      - default
+      - immich_default
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
@@ -104,8 +108,16 @@ volumes:
 secrets:
   immich_api_key:
     file: ./secrets/immich_api_key.txt
+
+networks:
+  default:
+    driver: bridge
+  immich_default:
+    external: true
 EOF
 ```
+
+> **Note:** The `immich_default` network must match your Immich deployment's network name. Run `docker network ls` to find it. If your Immich compose uses a different project name, adjust accordingly.
 
 ## Step 6: Start the Stack
 
@@ -136,7 +148,7 @@ Sign in with:
 - **Email:** the `ADMIN_EMAIL` you set in `.env`
 - **Password:** the `ADMIN_PASSWORD` you set in `.env`
 
-After logging in, you should see the dashboard with people from your Immich library.
+After logging in, you should see the people page with thumbnails from your Immich library.
 
 ## Step 8: Create User Accounts
 
@@ -187,7 +199,8 @@ docker compose down && docker compose up -d
 | "Initial people sync failed" | Verify `IMMICH_URL` is reachable from the container |
 | Can't log in as admin | Confirm `ADMIN_EMAIL` and `ADMIN_PASSWORD` match `.env` exactly |
 | Login page shows but auth fails | Check `BETTER_AUTH_SECRET` is set and not empty |
-| Users can't reach FaceShare | Verify `FRONTEND_URL` matches the URL in their browser |
+| Users can't reach FaceShare | Check `FRONTEND_URL` matches the URL in their browser |
+| Thumbnails don't load | Ensure FaceShare container can reach Immich on the configured network |
 | Database errors on startup | Delete the old volume: `docker compose down -v` (⚠️ destroys all data) |
 
 ## Updating FaceShare
@@ -199,7 +212,7 @@ docker compose pull
 docker compose up -d
 ```
 
-The database schema is auto-migrated on startup — no manual migration needed.
+The `pull_policy: always` ensures the latest image is pulled on every deploy. The database schema is auto-migrated on startup — no manual migration needed.
 
 ## Backup
 
