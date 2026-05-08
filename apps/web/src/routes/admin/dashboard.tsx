@@ -444,8 +444,25 @@ function BackupPanel() {
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    window.open(`/api/admin/backups/${encodeURIComponent(b.name)}`, "_blank");
+                  loading={false}
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/admin/backups/${encodeURIComponent(b.name)}`, {
+                        credentials: "include",
+                      });
+                      if (!res.ok) throw new Error("Download failed");
+                      const blob = await res.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = b.name;
+                      document.body.appendChild(a);
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      document.body.removeChild(a);
+                    } catch {
+                      window.location.href = "/login";
+                    }
                   }}
                 >
                   <Download className="h-3 w-3" />
