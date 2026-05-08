@@ -4,6 +4,7 @@ import { ToastProvider } from "./components/shared/toast";
 import LoginPage from "./routes/login";
 import PeopleDirectory from "./routes/people/index";
 import Gallery from "./routes/gallery/index";
+import Downloads from "./routes/downloads";
 import AdminDashboard from "./routes/admin/dashboard";
 import AdminPlayground from "./routes/admin/playground";
 import AdminLogs from "./routes/admin/logs";
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/people" element={<PeopleDirectory />} />
           <Route path="/gallery/:personId" element={<Gallery />} />
+          <Route path="/downloads" element={<Downloads />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/playground" element={<AdminPlayground />} />
           <Route path="/admin/logs" element={<AdminLogs />} />

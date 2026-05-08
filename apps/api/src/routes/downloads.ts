@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { eq, and } from "drizzle-orm";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { getDb } from "../db/index.js";
 import { downloadJobs, approvals, assetCache, people } from "../db/schema.js";
@@ -66,6 +66,49 @@ downloads.post("/", async (c) => {
 
   const jobId = enqueueDownload(user.id, personId, ids, user.email);
   return sendSuccess(c, { data: { id: jobId, status: "pending" } }, 201);
+});
+
+downloads.get("/", async (c) => {
+  const user = c.get("user");
+  const db = getDb();
+
+  const jobs = db
+    .select()
+    .from(downloadJobs)
+    .where(eq(downloadJobs.userId, user.id))
+    .orderBy(downloadJobs.createdAt)
+    .all();
+
+  const results = jobs.map((job) => {
+    const result: Record<string, unknown> = {
+      id: job.id,
+      status: job.status,
+      personId: job.personId,
+      error: job.error,
+      createdAt: job.createdAt,
+    };
+
+    if (job.status === "completed" && job.zipPath && job.expiresAt) {
+      try {
+        const s = existsSync(job.zipPath) ? statSync(job.zipPath) : null;
+        if (s) {
+          result.sizeBytes = s.size;
+          result.downloadUrl = createSignedDownloadUrl(job.id);
+          result.expiresAt = job.expiresAt;
+        } else {
+          result.status = "failed";
+          result.error = "File deleted";
+        }
+      } catch {
+        result.status = "failed";
+        result.error = "File not found";
+      }
+    }
+
+    return result;
+  });
+
+  return sendSuccess(c, { data: results });
 });
 
 downloads.get("/:jobId", async (c) => {
