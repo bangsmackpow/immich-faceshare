@@ -42,7 +42,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               Logs
             </NavLink>
             <NavLink
-              to="/"
+              to="/people"
               className="text-zinc-600 transition-colors hover:text-zinc-400"
             >
               Back to app
