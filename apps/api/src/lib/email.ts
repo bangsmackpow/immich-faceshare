@@ -51,6 +51,35 @@ export async function sendApprovalNotification(
   }
 }
 
+export async function sendShareNotification(
+  email: string,
+  personName: string,
+  shareUrl: string,
+  accessCode: string,
+): Promise<boolean> {
+  const transport = getTransport();
+  if (!transport) {
+    logger.warn("SMTP not configured — skipping share email notification");
+    return false;
+  }
+
+  const from = process.env.SMTP_FROM ?? "noreply@faceshare.local";
+
+  try {
+    await transport.sendMail({
+      from,
+      to: email,
+      subject: `You've been shared a photo of ${personName}`,
+      text: `Someone has shared a photo of ${personName} with you.\n\nVisit this link and enter your access code to view it:\n${shareUrl}\n\nYour access code: ${accessCode}\n\nThis link expires in 7 days.`,
+    });
+    logger.info({ email, personName }, "share notification sent");
+    return true;
+  } catch (err) {
+    logger.error(err, "failed to send share notification");
+    return false;
+  }
+}
+
 export async function sendDownloadReadyNotification(
   email: string,
   personName: string,

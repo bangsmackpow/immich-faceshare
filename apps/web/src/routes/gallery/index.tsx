@@ -7,7 +7,7 @@ import { useToast } from "../../components/shared/toast";
 import { PageTransition, CardHover, FadeIn } from "../../components/animations";
 import { GallerySkeleton } from "../../components/shared/skeleton";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Download, X, ChevronLeft, ChevronRight, Check, Filter, Calendar, Camera, MapPin, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, X, ChevronLeft, ChevronRight, Check, Filter, Calendar, Camera, MapPin, RefreshCw, Share2, Copy, Mail } from "lucide-react";
 
 interface Asset {
   id: string;
@@ -47,6 +47,10 @@ export default function Gallery() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareAssetId, setShareAssetId] = useState<string | null>(null);
+  const [shareEmail, setShareEmail] = useState("");
+  const [shareResult, setShareResult] = useState<{ shareUrl: string; accessCode: string } | null>(null);
   const [filters, setFilters] = useState<GalleryFilters>({
     dateFrom: "",
     dateTo: "",
@@ -125,6 +129,19 @@ export default function Gallery() {
     onError: (err: Error) => toast(err.message, "error"),
   });
 
+  const shareMutation = useMutation({
+    mutationFn: ({ assetId, recipientEmail }: { assetId: string; recipientEmail: string }) =>
+      api<{ shareUrl: string; accessCode: string }>("/api/share", {
+        method: "POST",
+        body: JSON.stringify({ assetId, recipientEmail }),
+      }),
+    onSuccess: (result) => {
+      setShareResult({ shareUrl: result.shareUrl, accessCode: result.accessCode });
+      toast("Share link created!", "success");
+    },
+    onError: (err: Error) => toast(err.message, "error"),
+  });
+
   const selectedCount = selected.size;
 
   const toggleSelect = useCallback((assetId: string) => {
@@ -150,6 +167,45 @@ export default function Gallery() {
       .map((a) => a.immichAssetId);
     downloadMutation.mutate(ids);
     clearSelection();
+  };
+
+  const openShareModal = (assetId: string) => {
+    setShareAssetId(assetId);
+    setShareEmail("");
+    setShareResult(null);
+    setShowShareModal(true);
+  };
+
+  const closeShareModal = () => {
+    setShowShareModal(false);
+    setShareAssetId(null);
+    setShareResult(null);
+  };
+
+  const handleShare = () => {
+    if (!shareAssetId || !shareEmail) {
+      toast("Enter recipient email", "info");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shareEmail)) {
+      toast("Invalid email address", "error");
+      return;
+    }
+    shareMutation.mutate({ assetId: shareAssetId, recipientEmail: shareEmail });
+  };
+
+  const copyShareUrl = () => {
+    if (shareResult) {
+      navigator.clipboard.writeText(shareResult.shareUrl);
+      toast("Link copied!", "success");
+    }
+  };
+
+  const copyAccessCode = () => {
+    if (shareResult) {
+      navigator.clipboard.writeText(shareResult.accessCode);
+      toast("Code copied!", "success");
+    }
   };
 
   if (isLoading) {
@@ -378,6 +434,23 @@ export default function Gallery() {
           onNext={() =>
             setLightboxIndex((i) => (i !== null ? (i + 1) % filteredAssets.length : null))
           }
+          onShare={() => {
+            const asset = filteredAssets[lightboxIndex];
+            if (asset) openShareModal(asset.id);
+          }}
+        />
+      )}
+
+      {showShareModal && (
+        <ShareModal
+          email={shareEmail}
+          onEmailChange={setShareEmail}
+          onClose={closeShareModal}
+          onShare={handleShare}
+          isPending={shareMutation.isPending}
+          result={shareResult}
+          onCopyUrl={copyShareUrl}
+          onCopyCode={copyAccessCode}
         />
       )}
     </PageTransition>
@@ -390,12 +463,14 @@ function Lightbox({
   onClose,
   onPrev,
   onNext,
+  onShare,
 }: {
   assets: Asset[];
   index: number;
   onClose: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onShare: () => void;
 }) {
   const asset = assets[index];
 
@@ -428,6 +503,13 @@ function Lightbox({
       >
         <ChevronRight size={24} />
       </button>
+      <button
+        onClick={onShare}
+        className="absolute left-4 bottom-4 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+        aria-label="Share"
+      >
+        <Share2 size={18} />
+      </button>
       <img
         src={asset?.signedUrl}
         alt={`Photo ${index + 1}`}
@@ -435,6 +517,104 @@ function Lightbox({
       />
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-sm text-white">
         {index + 1} / {assets.length}
+      </div>
+    </div>
+  );
+}
+
+function ShareModal({
+  email,
+  onEmailChange,
+  onClose,
+  onShare,
+  isPending,
+  result,
+  onCopyUrl,
+  onCopyCode,
+}: {
+  email: string;
+  onEmailChange: (v: string) => void;
+  onClose: () => void;
+  onShare: () => void;
+  isPending: boolean;
+  result: { shareUrl: string; accessCode: string } | null;
+  onCopyUrl: () => void;
+  onCopyCode: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Share photo"
+    >
+      <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-zinc-100">Share Photo</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-100" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
+
+        {!result ? (
+          <>
+            <div className="mb-4">
+              <label className="mb-1 block text-sm text-zinc-400">Recipient email</label>
+              <div className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2">
+                <Mail size={16} className="text-zinc-500" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => onEmailChange(e.target.value)}
+                  placeholder="recipient@example.com"
+                  className="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none"
+                  onKeyDown={(e) => { if (e.key === "Enter") onShare(); }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <p className="mb-4 text-xs text-zinc-500">
+              They&apos;ll receive an email with a link and access code. Link expires in 7 days.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={onShare} loading={isPending} className="flex-1">
+                <Share2 size={14} />
+                Send
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-4 rounded-md border border-emerald-800 bg-emerald-900/30 p-3">
+              <p className="text-sm text-emerald-400">Share link created!</p>
+            </div>
+            <div className="mb-3">
+              <label className="mb-1 block text-xs text-zinc-500">Share link</label>
+              <div className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2">
+                <span className="flex-1 truncate text-xs text-zinc-300">{result.shareUrl}</span>
+                <button onClick={onCopyUrl} className="text-zinc-400 hover:text-zinc-100" aria-label="Copy link">
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="mb-1 block text-xs text-zinc-500">Access code</label>
+              <div className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2">
+                <span className="flex-1 text-sm font-mono text-zinc-100">{result.accessCode}</span>
+                <button onClick={onCopyCode} className="text-zinc-400 hover:text-zinc-100" aria-label="Copy code">
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+            <Button variant="primary" onClick={onClose} className="w-full">
+              Done
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

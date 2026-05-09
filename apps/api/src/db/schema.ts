@@ -167,6 +167,36 @@ export const downloadJobs = sqliteTable("download_jobs", {
     .default(sql`(unixepoch())`),
 });
 
+export const sharedLinks = sqliteTable(
+  "shared_links",
+  {
+    id: text("id").primaryKey(),
+    code: text("code").notNull().unique(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    personId: text("person_id")
+      .notNull()
+      .references(() => people.id, { onDelete: "cascade" }),
+    assetId: text("asset_id")
+      .notNull()
+      .references(() => assetCache.id, { onDelete: "cascade" }),
+    recipientEmail: text("recipient_email").notNull(),
+    accessCode: text("access_code").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    accessCount: integer("access_count").notNull().default(0),
+    lastAccessedAt: integer("last_accessed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    index("idx_shared_links_code").on(t.code),
+    index("idx_shared_links_user").on(t.userId),
+    index("idx_shared_links_asset").on(t.assetId),
+  ],
+);
+
 export const auditLog = sqliteTable("audit_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").references(() => users.id),

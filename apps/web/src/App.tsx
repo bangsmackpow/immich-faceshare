@@ -8,23 +8,47 @@ import Downloads from "./routes/downloads";
 import AdminDashboard from "./routes/admin/dashboard";
 import AdminPlayground from "./routes/admin/playground";
 import AdminLogs from "./routes/admin/logs";
+import SharePage from "./routes/share";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/people" element={<PeopleDirectory />} />
-          <Route path="/gallery/:personId" element={<Gallery />} />
-          <Route path="/downloads" element={<Downloads />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/playground" element={<AdminPlayground />} />
-          <Route path="/admin/logs" element={<AdminLogs />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </ToastProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <Routes>
+        <Route path="/share/:code" element={<SharePage />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/people" element={
+          <AuthProvider>
+            <PeopleDirectory />
+          </AuthProvider>
+        } />
+        <Route path="/gallery/:personId" element={
+          <AuthProvider>
+            <Gallery />
+          </AuthProvider>
+        } />
+        <Route path="/downloads" element={
+          <AuthProvider>
+            <Downloads />
+          </AuthProvider>
+        } />
+        <Route path="/admin" element={
+          <AuthProvider>
+            <AdminDashboard />
+          </AuthProvider>
+        } />
+        <Route path="/admin/playground" element={
+          <AuthProvider>
+            <AdminPlayground />
+          </AuthProvider>
+        } />
+        <Route path="/admin/logs" element={
+          <AuthProvider>
+            <AdminLogs />
+          </AuthProvider>
+        } />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </ToastProvider>
   );
 }

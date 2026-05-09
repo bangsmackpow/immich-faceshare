@@ -118,6 +118,20 @@ export function migrate(sqlite: Database.Database) {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
 
+    CREATE TABLE IF NOT EXISTS shared_links (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+      asset_id TEXT NOT NULL REFERENCES asset_cache(id) ON DELETE CASCADE,
+      recipient_email TEXT NOT NULL,
+      access_code TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      access_count INTEGER NOT NULL DEFAULT 0,
+      last_accessed_at INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+
     CREATE TABLE IF NOT EXISTS audit_log (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES users(id),
@@ -127,6 +141,9 @@ export function migrate(sqlite: Database.Database) {
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
 
+    CREATE INDEX IF NOT EXISTS idx_shared_links_code ON shared_links(code);
+    CREATE INDEX IF NOT EXISTS idx_shared_links_user ON shared_links(user_id);
+    CREATE INDEX IF NOT EXISTS idx_shared_links_asset ON shared_links(asset_id);
     CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status);
     CREATE INDEX IF NOT EXISTS idx_access_requests_user ON access_requests(user_id);
     CREATE INDEX IF NOT EXISTS idx_approvals_user_person ON approvals(user_id, person_id);
