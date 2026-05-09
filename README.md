@@ -23,8 +23,9 @@ The service runs on `http://localhost:3001` by default.
 
 - **Face Discovery** — Automatically pulls people from your Immich library
 - **Photo Sharing** — Users request access to specific people, admins approve/deny
+- **Single Photo Share** — Share individual photos via email with a unique access code
 - **Email/Password Auth** — Admin creates accounts, no OAuth or third-party providers
-- **Email Notifications** — Users notified when access is approved or downloads are ready
+- **Email Notifications** — Users notified when access is approved, downloads are ready, or photos are shared
 - **Downloads Page** — `/downloads` shows queued, processing, and completed ZIP downloads with auto-refresh
 - **Bulk Downloads** — Queue-based ZIP download for approved photos
 - **Admin Dashboard** — Manage users, requests, approvals, audit logs, DB backups, and system health
@@ -67,6 +68,18 @@ Users can download approved photos as ZIP archives from two places:
 2. **Downloads page** (`/downloads`) — View all your download jobs with status (pending → processing → completed), file size, and a download button for completed ZIPs
 
 Completed downloads auto-refresh every 3 seconds. ZIP files expire after 24 hours.
+
+## Single Photo Sharing
+
+Share individual photos with anyone via email — no account required for the recipient:
+
+1. Open a photo in the gallery lightbox and click **Share**
+2. Enter the recipient's email address
+3. They receive an email with a unique link and 6-digit access code
+4. They visit the link, enter the code, and can view/download the full-resolution image
+5. Share links expire after 7 days
+
+The recipient does not need a FaceShare account. The shared image retains all EXIF metadata.
 
 ## Configuration
 

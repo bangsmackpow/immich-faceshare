@@ -9,6 +9,9 @@
 - File-based logging with pino
 - Immich v2.x compatible (POST `/api/search/metadata` with JSON body)
 - Downloads page (`/downloads`) with job polling and signed ZIP delivery
+- Single photo sharing with email notifications and access code verification
+- Welcome emails with login credentials on user creation
+- Revoked approval filtering via `isNull(approvals.revokedAt)`
 
 ## Scaling Recommendations
 

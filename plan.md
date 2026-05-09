@@ -48,6 +48,27 @@
 - [x] Signed ZIP download with expiration
 - [x] Push to main
 
+## Phase 8: Single Photo Sharing (Complete)
+- [x] Create `shared_links` table with `code`, `accessCode`, `expiresAt`, `accessCount`
+- [x] `POST /api/share` — create share link with email notification
+- [x] `GET /api/share/:code` — public share info endpoint
+- [x] `POST /api/share/:code/verify` — verify access code, return signed token
+- [x] `GET /api/share/:code/download?token=` — serve full-res image (public, token-protected)
+- [x] Share modal integrated into gallery lightbox
+- [x] Public share page at `/share/:code` with access code input
+- [x] `sendShareNotification` email with share URL and access code
+- [x] Push to main
+
+## Phase 9: Welcome Emails & Instant Approvals (Complete)
+- [x] `sendWelcomeEmail` with login credentials + app overview
+- [x] `POST /api/admin/users` accepts `grantAccessToPersonIds` for instant approvals
+- [x] Admin create user modal shows checkbox list of synced people
+- [x] Push to main
+
+## Phase 10: Revoked Approval Fix (Complete)
+- [x] Fix `GET /api/people` to filter revoked approvals via `isNull(approvals.revokedAt)`
+- [x] Push to main
+
 ## Pending
 - [ ] Verify HTTPS cookie flags (`__Secure-`) in production
 - [ ] Add rate limiting
