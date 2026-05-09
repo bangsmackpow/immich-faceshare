@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { getDb } from "../db/index.js";
 import { people, approvals } from "../db/schema.js";
 import { searchPeopleFts } from "../lib/sync.js";
@@ -22,7 +22,7 @@ peopleRoute.get("/", async (c) => {
   const approvedIds = db
     .select({ personId: approvals.personId })
     .from(approvals)
-    .where(eq(approvals.userId, user.id))
+    .where(and(eq(approvals.userId, user.id), isNull(approvals.revokedAt)))
     .all()
     .map((a: { personId: string }) => a.personId);
 
