@@ -8,6 +8,11 @@ import { Button } from "../../components/ui/button";
 import { Modal } from "../../components/ui/modal";
 import { CheckCircle, XCircle, Database, HardDrive, Users, Clock, Download, RefreshCw, Server, ArrowDownUp, UserPlus, KeyRound, Trash2, Edit } from "lucide-react";
 
+interface PersonOption {
+  id: string;
+  name: string;
+}
+
 interface RequestRow {
   id: string;
   status: string;
@@ -525,6 +530,7 @@ function UserManagementPanel() {
 
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "user" as "admin" | "user" });
   const [editForm, setEditForm] = useState({ name: "", role: "admin" as "admin" | "user" });
+  const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "users"],
@@ -532,16 +538,23 @@ function UserManagementPanel() {
     refetchInterval: 30_000,
   });
 
+  const { data: peopleData } = useQuery({
+    queryKey: ["admin", "people-list"],
+    queryFn: () => api<{ data: PersonOption[] }>("/api/admin/people"),
+  });
+
   const createUser = useMutation({
     mutationFn: () =>
       api("/api/admin/users", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, grantAccessToPersonIds: selectedPeople }),
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "approvals"] });
       setShowCreate(false);
       setForm({ name: "", email: "", password: "", role: "user" });
+      setSelectedPeople([]);
     },
     onError: (err) => {
       console.error("create user failed:", err);
@@ -629,6 +642,31 @@ function UserManagementPanel() {
             <option value="user">User</option>
             <option value="admin">Admin</option>
           </select>
+
+          <div>
+            <p className="mb-2 text-xs font-medium text-zinc-400">Grant immediate access to:</p>
+            <div className="max-h-40 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900 p-2 space-y-1">
+              {peopleData?.data.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedPeople.includes(p.id)}
+                    onChange={(e) =>
+                      setSelectedPeople((prev) =>
+                        e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                      )
+                    }
+                    className="rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm text-zinc-300">{p.name}</span>
+                </label>
+              ))}
+              {!peopleData?.data?.length && (
+                <p className="text-xs text-zinc-500 py-1">No people synced yet</p>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-zinc-500">Selected users will skip the request flow for these people.</p>
+          </div>
         </div>
       </Modal>
 

@@ -80,6 +80,58 @@ export async function sendShareNotification(
   }
 }
 
+export async function sendWelcomeEmail(
+  email: string,
+  name: string,
+  password: string,
+  grantedPeople: string[] = [],
+): Promise<boolean> {
+  const transport = getTransport();
+  if (!transport) {
+    logger.warn("SMTP not configured — skipping welcome email");
+    return false;
+  }
+
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:3000";
+
+  const accessList =
+    grantedPeople.length > 0
+      ? `You already have access to:\n${grantedPeople.map((p) => `  • ${p}`).join("\n")}\n`
+      : "";
+
+  const text = `Welcome to FaceShare, ${name}!
+
+Your account has been created. Here are your login details:
+
+Email: ${email}
+Password: ${password}
+
+Login here: ${frontendUrl}/login
+
+${accessList}What you can do in FaceShare:
+• Browse people in the directory and request access to their photos
+• View approved photos in a clean gallery with EXIF details
+• Download photos of people you have access to
+• Share individual photos via email with a secure access code
+• All shared links expire after 7 days
+
+If you have any questions, contact your administrator.`;
+
+  try {
+    await transport.sendMail({
+      from: process.env.SMTP_FROM ?? "noreply@faceshare.local",
+      to: email,
+      subject: "Welcome to FaceShare — your account is ready",
+      text,
+    });
+    logger.info({ email, name }, "welcome email sent");
+    return true;
+  } catch (err) {
+    logger.error(err, "failed to send welcome email");
+    return false;
+  }
+}
+
 export async function sendDownloadReadyNotification(
   email: string,
   personName: string,

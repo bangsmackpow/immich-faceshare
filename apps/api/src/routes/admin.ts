@@ -16,7 +16,7 @@ import {
 import { authMiddleware, adminGuard, type AuthUser } from "../middleware/auth.js";
 import { sendError, sendSuccess } from "../lib/response.js";
 import { logger } from "../lib/logger.js";
-import { sendApprovalNotification } from "../lib/email.js";
+import { sendApprovalNotification, sendWelcomeEmail } from "../lib/email.js";
 import { getImmichClient } from "../lib/immich.js";
 import { jobQueue } from "../lib/download-queue.js";
 import { syncAllPeople } from "../lib/sync.js";
@@ -426,6 +426,17 @@ admin.get("/backups/:filename", (c) => {
   }
 });
 
+// ── People list (for admin user creation) ──
+admin.get("/people", (c) => {
+  const db = getDb();
+  const rows = db
+    .select({ id: people.id, name: people.name })
+    .from(people)
+    .orderBy(people.name)
+    .all();
+  return sendSuccess(c, { data: rows, total: rows.length });
+});
+
 // ── User Management ──
 admin.get("/users", (c) => {
   const db = getDb();
@@ -451,8 +462,9 @@ admin.post("/users", async (c) => {
   const name = body?.name as string | undefined;
   const password = body?.password as string | undefined;
   const role = (body?.role as "admin" | "user") ?? "user";
+  const grantAccessToPersonIds = (body?.grantAccessToPersonIds as string[] | undefined) ?? [];
 
-  logger.info({ adminUser: adminUser.id, email, name, role }, "admin create user");
+  logger.info({ adminUser: adminUser.id, email, name, role, grantAccessToPersonIds }, "admin create user");
 
   if (!email || !name || !password) {
     return sendError(c, 400, "INVALID_REQUEST", "email, name, and password are required");
@@ -480,18 +492,42 @@ admin.post("/users", async (c) => {
         .run();
     }
 
+    // Auto-grant access to specified people
+    const grantedNames: string[] = [];
+    if (grantAccessToPersonIds.length > 0) {
+      for (const personId of grantAccessToPersonIds) {
+        const person = db.select().from(people).where(eq(people.id, personId)).get();
+        if (person) {
+          db.insert(approvalsTable)
+            .values({
+              id: randomUUID(),
+              userId,
+              personId,
+              grantedAt: new Date(),
+            })
+            .run();
+          grantedNames.push(person.name);
+        }
+      }
+    }
+
     db.insert(auditLog)
       .values({
         id: randomUUID(),
         userId: adminUser.id,
         action: "user.create",
-        details: JSON.stringify({ userId, email, role }),
+        details: JSON.stringify({ userId, email, role, grantedAccess: grantedNames }),
         ip: c.req.header("x-forwarded-for") ?? c.req.header("x-real-ip") ?? null,
         createdAt: new Date(),
       })
       .run();
 
-    return sendSuccess(c, { data: { id: userId, email, name, role } });
+    // Send welcome email in background (don't block response)
+    sendWelcomeEmail(email, name, password, grantedNames).catch((err) => {
+      logger.error(err, "welcome email failed");
+    });
+
+    return sendSuccess(c, { data: { id: userId, email, name, role, grantedAccess: grantedNames } });
   } catch (err) {
     const message = (err as Error).message;
     if (message.includes("already exists") || message.includes("duplicate")) {
